@@ -1,0 +1,89 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Funções Auxiliares de Segurança
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Configurações públicas: leitura para todos, escrita estrita para Admin
+    match /settings/public {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Planos fixos: leitura pública para visitantes, escrita apenas para Admin
+    match /plans/{planId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Perfil do Utilizador
+    match /users/{userId} {
+      // O próprio utilizador e o admin podem ler
+      allow read: if isOwner(userId) || isAdmin();
+      
+      // Criação de perfil: utilizador autenticado pode criar o seu documento
+      // Imposição estrita: role DEVE ser 'user' e status 'active'
+      allow create: if isOwner(userId) && 
+        request.resource.data.role == 'user' &&
+        request.resource.data.status == 'active';
+        
+      // Actualização: utilizador não pode mudar o seu próprio papel ou status
+      allow update: if (isOwner(userId) && 
+        request.resource.data.role == resource.data.role && 
+        request.resource.data.status == resource.data.status) || isAdmin();
+        
+      allow delete: if isAdmin();
+    }
+
+    // Subscrições
+    match /subscriptions/{subscriptionId} {
+      allow read: if (isAuthenticated() && resource.data.userId == request.auth.uid) || isAdmin();
+      
+      // Utilizador pode criar pedido inicial de subscrição apenas com status 'pending'
+      allow create: if isAuthenticated() && 
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.status == 'pending';
+        
+      // Apenas o Administrador pode aprovar, suspender ou alterar credenciais de acesso
+      allow update, delete: if isAdmin();
+    }
+
+    // Facturas Internas
+    match /invoices/{invoiceId} {
+      allow read: if (isAuthenticated() && resource.data.userId == request.auth.uid) || isAdmin();
+      
+      // Criação inicial da factura pelo checkout com status 'pending'
+      allow create: if isAuthenticated() && 
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.status == 'pending';
+        
+      // O utilizador só pode actualizar a factura para enviar ou editar o proofText (comprovativo em texto)
+      // enquanto a factura estiver 'pending'. Não pode alterar status ou paidAt!
+      allow update: if (isAuthenticated() && 
+        resource.data.userId == request.auth.uid && 
+        resource.data.status == 'pending' &&
+        request.resource.data.status == resource.data.status &&
+        request.resource.data.amount == resource.data.amount) || isAdmin();
+        
+      allow delete: if isAdmin();
+    }
+
+    // Regra padrão de negação para qualquer caminho não previsto
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
