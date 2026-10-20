@@ -59,24 +59,26 @@ Na fase inicial:
 
 ## 1. Definição do produto
 
-Construir uma pequena aplicação web para a **Zedecks IT** apresentar o serviço de acesso/contas **ChatGPT Plus**, vender subscrições e gerir manualmente os subscritores e os pagamentos.
+Construir uma aplicação web para a **MEGASON** apresentar o serviço de acesso/contas **ChatGPT Plus**, vender subscrições e gerir manualmente os subscritores e os pagamentos. A **Zedecks IT** atua como desenvolvedora e detentora do código-fonte.
 
 ### Proposta de valor e recursos apresentados
-- **Modelos avançados de IA:** Acesso às versões avançadas de IA.
-- **Criação de conteúdos:** Textos, artigos, músicas e ideias.
+Todos os pacotes contam rigorosamente com os mesmos recursos de inteligência artificial. O que muda entre os planos é apenas o valor e o período de tempo:
+- **Modelos avançados de IA:** Acesso às versões avançadas de IA (GPT-4o).
+- **Criação de conteúdos:** Textos, artigos, músicas e ideias (Básico).
 - **Produtividade e aprendizagem:** Resumos, traduções, explicações didácticas.
 - **Programação:** Apoio a códigos, depuração e scripts.
 - **Criatividade visual:** Geração e edição de imagens.
-- **Documentos:** Análise e processamento de ficheiros e dados.
-- **Pesquisa:** Pesquisa online rápida e aprofundada.
+- **Documentos:** Envio e análise de documentos e ficheiros.
+- **Pesquisa:** Pesquisa na Internet e pesquisa aprofundada.
 - **Voz e multissensorial:** Conversas em tempo real por voz.
-- **Aviso transparente:** Os recursos e limites dependem da disponibilidade do serviço e podem variar (o uso não é estritamente ilimitado).
+- **Pasta individual:** Espaço próprio e senhas de acesso.
+- **Aviso transparente:** Os recursos e limites dependem da disponibilidade do serviço e podem variar (o uso não é literalmente ilimitado).
 
 ### Planos fixos disponíveis (MZN)
-- **Plano 30 Dias:** 350 MT
-- **Plano 60 Dias:** 690 MT
-- **Plano 90 Dias:** 1.025 MT
-- **Plano 120 Dias:** 1.300 MT
+- **Plano 30 Dias:** 300 MT
+- **Plano 60 Dias:** 550 MT
+- **Plano 90 Dias:** 800 MT
+- **Plano 120 Dias:** 1.000 MT
 
 ### Fluxo "Como Funciona"
 1. **Escolha e Pagamento:** O cliente escolhe o plano e efectua o pagamento fora da plataforma pelos canais oficiais (M-Pesa, E-Mola ou Absa Bank).
@@ -262,13 +264,13 @@ O papel `admin` não pode ser definido livremente pelo formulário ou pelo clien
 
 #### `plans/{planId}`
 - `name`: Nome do plano (ex.: "30 Dias", "60 Dias", "90 Dias", "120 Dias")
-- `description`: Recursos incluídos do ChatGPT Plus
-- `price`: 350, 690, 1025 ou 1300
+- `description`: Recursos idênticos do ChatGPT Plus para todos os pacotes
+- `price`: 300, 550, 800 ou 1000
 - `currency`: `MZN`
 - `durationDays`: 30, 60, 90 ou 120
 - `active`: Booleano (`true`)
 
-Os planos são fixos (30 dias = 350 MT, 60 dias = 690 MT, 90 dias = 1.025 MT, 120 dias = 1.300 MT) e inseridos por configuração inicial. Não criar CRUD/editor de planos no painel.
+Os planos são fixos (30 dias = 300 MT, 60 dias = 550 MT, 90 dias = 800 MT, 120 dias = 1.000 MT) e inseridos por configuração inicial. Todos os pacotes possuem os mesmos recursos, variando apenas preço e período. Não criar CRUD/editor de planos no painel.
 
 #### `subscriptions/{subscriptionId}`
 - `userId`: Referência ao utilizador
@@ -408,18 +410,20 @@ Implementar a experiência pública com a proposta de valor do ChatGPT Plus, os 
    - secção principal (*hero*) com proposta de valor clara;
    - grelha de recursos e benefícios práticos (IA avançada, criação de textos, programação, imagens, análise de documentos, conversas por voz);
    - secção "Como Funciona" em 4 passos didácticos;
-   - cartões dos 4 planos fixos (30 dias / 350 MT, 60 dias / 690 MT, 90 dias / 1.025 MT, 120 dias / 1.300 MT);
+   - cartões dos 4 planos fixos (30 dias / 300 MT, 60 dias / 550 MT, 90 dias / 800 MT, 120 dias / 1.000 MT);
+   - recursos idênticos para todos os pacotes, variando apenas o período de uso e o preço;
    - nota de transparência sobre limites e disponibilidade de uso;
    - instruções claras sobre métodos de pagamento oficiais e regra de comprovativo exclusivo em texto;
    - chamadas à acção (CTA) direccionando para o checkout;
-   - rodapé com informações da Zedecks IT.
+   - rodapé institucional MEGASON com menção à desenvolvedora Zedecks IT.
 2. Apresentar estritamente os planos definidos pelo cliente, sem inventar valores.
 3. Ao escolher um plano, preservar o identificador e validar os dados de confiança no checkout sem confiar no valor manipulável pelo navegador.
 4. Apresentar os métodos de pagamento (M-Pesa, E-Mola, Absa Bank) com destaque para a exigência de comprovativo em texto.
 
 ### Critérios de aceitação
 - A landing page funciona e é responsiva em smartphones e desktops.
-- Os 4 planos oficiais estão descritos com precisão (350 MT, 690 MT, 1.025 MT e 1.300 MT).
+- Os 4 planos oficiais estão descritos com precisão (300 MT, 550 MT, 800 MT e 1.000 MT).
+- Todos os pacotes possuem os mesmos recursos de IA.
 - A secção de recursos e o fluxo "Como Funciona" correspondem à oferta do cliente.
 - A selecção de plano conduz ao ecrã de checkout/registo preservando o plano escolhido.
 - Não existem funcionalidades fora de âmbito.

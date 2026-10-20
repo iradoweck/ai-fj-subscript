@@ -1,6 +1,8 @@
-# Plano de Execução do MVP — Subscrições Zedecks IT
+# Plano de Execução do MVP — Subscrições MEGASON
 
 > **Status Geral do Projeto:** Fase 0 concluída / Aguardando aprovação para Fase 1  
+> **Sistema / Cliente:** MEGASON  
+> **Desenvolvedora & Propriedade do Código:** Zedecks IT  
 > **Orçamento:** 8.500 MT (Âmbito estrito)  
 > **Domínio de Produção:** `ai.admin-megason.com`  
 > **Stack:** HTML5, CSS3, JavaScript Vanilla (ES Modules), Firebase Authentication, Cloud Firestore, GitHub Pages.
@@ -9,15 +11,17 @@
 
 ## 1. Visão Geral do Produto e Regras de Negócio
 
-Aplicação web estática para a **Zedecks IT** apresentar e comercializar subscrições de acesso e contas **ChatGPT Plus**, com conferência e aprovação 100% manual por parte do administrador.
+Aplicação web estática para a **MEGASON** apresentar e comercializar subscrições de acesso e contas **ChatGPT Plus**, com conferência e aprovação 100% manual por parte do administrador. O desenvolvimento e a posse do código-fonte pertencem à **Zedecks IT**.
 
 ### 1.1. Planos Fixos (Moeda: MZN)
+> **Regra de Negócio:** Todos os pacotes possuem exatamente os mesmos recursos de IA (GPT-4o, imagens, análise de documentos, voz e pasta dedicada). O que muda é estritamente o valor e o tempo de uso.
+
 | Plano | Preço | Duração | Validação no Checkout |
 | :--- | :--- | :--- | :--- |
-| **Plano 30 Dias** | 350 MT | 30 Dias | Preço e duração validados por snapshot confiável |
-| **Plano 60 Dias** | 690 MT | 60 Dias | Preço e duração validados por snapshot confiável |
-| **Plano 90 Dias** | 1.025 MT | 90 Dias | Preço e duração validados por snapshot confiável |
-| **Plano 120 Dias** | 1.300 MT | 120 Dias | Preço e duração validados por snapshot confiável |
+| **Plano 30 Dias** | 300 MT | 30 Dias | Preço e duração validados por snapshot confiável |
+| **Plano 60 Dias** | 550 MT | 60 Dias | Preço e duração validados por snapshot confiável |
+| **Plano 90 Dias** | 800 MT | 90 Dias | Preço e duração validados por snapshot confiável |
+| **Plano 120 Dias** | 1.000 MT | 120 Dias | Preço e duração validados por snapshot confiável |
 
 ### 1.2. Métodos Oficiais de Pagamento
 - **M-Pesa:** `842256366 – FRANCISCO`
@@ -43,7 +47,7 @@ Aplicação web estática para a **Zedecks IT** apresentar e comercializar subsc
 | **0** | **Inspecção e Descoberta** | Mapear o ambiente, validar stack, registrar restrições e criar base de documentação. | **Concluída** |
 | **1** | **Requisitos e Arquitectura Mínima** | Detalhar esquemas de dados, estados, transições e processos de segurança/admin. | **Concluída** |
 | **2** | **Fundação e Identidade Visual** | Criar base HTML/CSS modular (Light Mode ChatGPT/OpenAI), SVGs e módulo Firebase de exemplo. | **Concluída** |
-| **3** | **Landing Page e Planos Fixos** | Apresentar recursos da IA, "Como Funciona" em 4 passos, seleção de planos e CTA. | Pendente |
+| **3** | **Landing Page e Planos Fixos** | Apresentar recursos da IA, "Como Funciona" em 4 passos, seleção de planos e CTA. | **Concluída** |
 | **4** | **Firebase Authentication** | Registo com campos Moçambique, login Email/Senha e Google, recuperação de senha. | Pendente |
 | **5** | **Checkout, Subscrição e Fatura** | Fluxo de checkout com captura de comprovativo em texto, fatura interna pendente. | Pendente |
 | **6** | **Painel Administrativo** | Consulta de subscritores, validação de comprovativo em texto, aprovação e entrega de senhas/pasta. | Pendente |

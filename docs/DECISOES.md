@@ -1,8 +1,10 @@
-# Registo de Decisões Arquitecturais (ADR) — MVP Subscrições Zedecks IT
+# Registo de Decisões Arquitecturais (ADR) — MVP Subscrições MEGASON
 
 ## 1. Contexto e Restrições de Negócio
+- **Sistema & Cliente:** MEGASON (comercialização e operação das subscrições).
+- **Desenvolvedora & Titularidade do Código:** Zedecks IT.
 - **Orçamento:** 8.500 MT.
-- **Modelo:** Venda e partilha manual de acessos/pastas ChatGPT Plus para uma única entidade.
+- **Modelo:** Venda e partilha manual de acessos/pastas ChatGPT Plus para utilizadores finais da MEGASON.
 - **Ambiente de Produção:** GitHub Pages no domínio personalizado `ai.admin-megason.com`.
 
 ---
@@ -31,6 +33,11 @@
 ### ADR 005: Identidade Visual e Estilo (Light Mode ChatGPT/OpenAI)
 - **Decisão:** Interface estritamente em Light Mode, com cores e tipografia limpa inspiradas na estética moderna do ChatGPT/OpenAI (tons neutros, cinzas sutis e verde discreto). Ícones exclusivamente em SVG inline. Proibição expressa de emojis como ícones da interface.
 - **Justificação:** Garante uma experiência visual profissional, corporativa e sem distrações visuais ou inconsistências de renderização entre diferentes sistemas operacionais.
+
+### ADR 006: Identidade da Marca (MEGASON) e Titularidade de Desenvolvimento (Zedecks IT)
+- **Decisão:** O nome oficial do produto e da plataforma é **MEGASON**. A marca comercial e o serviço pertencem à MEGASON. A **Zedecks IT** atua exclusivamente como desenvolvedora do software e detentora dos direitos autorais sobre a arquitetura e código-fonte da aplicação.
+- **Justificação:** Garantir separação clara entre a marca do cliente perante os seus utilizadores finais e a empresa de tecnologia responsável pelo fornecimento e evolução do código.
+- **Impacto:** Todas as interfaces voltadas ao público (títulos, cabeçalhos, chamadas promocionais e suporte) refletem a MEGASON. As indicações de rodapé, metadados e documentação técnica identificam formalmente a Zedecks IT como desenvolvedora e mantenedora.
 
 ---
 

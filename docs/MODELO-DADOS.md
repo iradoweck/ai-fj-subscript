@@ -1,4 +1,5 @@
-# Modelo de Dados, Estados e Regras de Negócio — Zedecks IT MVP
+# Modelo de Dados, Estados e Regras de Negócio — MEGASON MVP
+> Desenvolvido por Zedecks IT
 
 > **Documento de Especificação Técnica:** Fase 1  
 > **Banco de Dados:** Cloud Firestore (NoSQL Document Store)  
@@ -33,13 +34,14 @@ Armazena os perfis cadastrais dos utilizadores. O ID do documento é estritament
 
 ### 1.2. Colecção `plans/{planId}`
 Registo estático dos planos comerciais oferecidos para o serviço ChatGPT Plus.
+> **Regra Mandatória:** Todos os planos contêm rigorosamente os mesmos recursos de inteligência artificial (modelos avançados, criação de texto/código, imagens, análise de documentos, voz e pasta individual). O diferencial é apenas o valor cobrado e a duração em dias.
 
 | Document ID | `name` | `price` | `currency` | `durationDays` | `active` |
 | :--- | :--- | :---: | :---: | :---: | :---: |
-| `plan-30d` | Plano 30 Dias | `350` | `MZN` | `30` | `true` |
-| `plan-60d` | Plano 60 Dias | `690` | `MZN` | `60` | `true` |
-| `plan-90d` | Plano 90 Dias | `1025` | `MZN` | `90` | `true` |
-| `plan-120d` | Plano 120 Dias | `1300` | `MZN` | `120` | `true` |
+| `plan-30d` | Plano 30 Dias | `300` | `MZN` | `30` | `true` |
+| `plan-60d` | Plano 60 Dias | `550` | `MZN` | `60` | `true` |
+| `plan-90d` | Plano 90 Dias | `800` | `MZN` | `90` | `true` |
+| `plan-120d` | Plano 120 Dias | `1000` | `MZN` | `120` | `true` |
 
 Campos adicionais no documento:
 - `description` (`string`): Resumo das funcionalidades (modelos de IA, imagens, análise, voz).
@@ -90,11 +92,11 @@ Facturas internas para controlo e registo de cobrança (sem valor fiscal oficial
 ---
 
 ### 1.5. Documento Público `settings/public`
-Contém as configurações públicas da Zedecks IT acessíveis a visitantes e utilizadores:
+Contém as configurações públicas da MEGASON acessíveis a visitantes e utilizadores:
 
 ```json
 {
-  "businessName": "Zedecks IT",
+  "businessName": "MEGASON",
   "domain": "ai.admin-megason.com",
   "paymentMethods": {
     "mpesa": { "title": "M-Pesa", "account": "842256366 – FRANCISCO" },
