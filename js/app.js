@@ -4,7 +4,7 @@
  * Gerencia inicialização, catálogo de planos, interações da landing page e fluxo de checkout
  */
 
-import { isFirebaseConfigured } from "./services/firebase.js";
+import { isFirebaseConfigured } from "./config/firebase-config.js";
 import { Icons } from "./utils/icons.js";
 import { 
   OFFICIAL_PLANS, 
@@ -13,9 +13,12 @@ import {
   getSelectedPlan 
 } from "./services/plans.js";
 
-document.addEventListener("DOMContentLoaded", () => {
+// Inicialização segura que previne perda do evento DOMContentLoaded
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initApp);
+} else {
   initApp();
-});
+}
 
 function initApp() {
   renderBrandIcons();
@@ -401,17 +404,17 @@ function setupScrollTopProgress() {
   const circumference = 2 * Math.PI * 22; // ~138.23
 
   function updateProgress() {
-    const scrollTop = window.scrollY || document.documentElement.scrollTop;
-    const docHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+    const scrollTop = window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
+    const docHeight = (document.documentElement.scrollHeight || document.body.scrollHeight) - document.documentElement.clientHeight;
     
-    // Visibilidade do botão
-    if (scrollTop > 200) {
+    // Visibilidade do botão a partir de 100px de rolagem
+    if (scrollTop > 100) {
       scrollTopBtn.classList.add("visible");
     } else {
       scrollTopBtn.classList.remove("visible");
     }
 
-    // Cálculo do preenchimento da borda (0 a 100%)
+    // Preenchimento do anel da borda conforme rolagem (0 a 100%)
     if (docHeight > 0) {
       const scrollPercentage = Math.min(Math.max(scrollTop / docHeight, 0), 1);
       const strokeOffset = circumference - (scrollPercentage * circumference);
@@ -419,7 +422,7 @@ function setupScrollTopProgress() {
     }
   }
 
-  // Listener de rolagem com requestAnimationFrame para performance ultra suave
+  // Listener de rolagem com requestAnimationFrame
   let ticking = false;
   window.addEventListener("scroll", () => {
     if (!ticking) {
@@ -431,97 +434,17 @@ function setupScrollTopProgress() {
     }
   }, { passive: true });
 
-  // Ação de voltar ao topo
-  scrollTopBtn.addEventListener("click", () => {
+  // Ação de rolagem suave até o topo
+  scrollTopBtn.addEventListener("click", (e) => {
+    e.preventDefault();
     window.scrollTo({
       top: 0,
       behavior: "smooth"
     });
   });
 
-  // Executa uma vez no carregamento
+  // Atualização inicial
   updateProgress();
 }
 
-/**
- * Configura botões de cópia rápida para números de pagamento
- */
-function setupCopyButtons() {
-  const copyButtons = document.querySelectorAll(".btn-copy");
-  copyButtons.forEach(button => {
-    button.addEventListener("click", async () => {
-      const textToCopy = button.getAttribute("data-copy");
-      if (!textToCopy) return;
 
-      try {
-        await navigator.clipboard.writeText(textToCopy);
-        const originalContent = button.innerHTML;
-        button.innerHTML = `${Icons.check} Copiado!`;
-        button.classList.add("btn-primary");
-        button.classList.remove("btn-secondary");
-
-        setTimeout(() => {
-          button.innerHTML = originalContent;
-          button.classList.remove("btn-primary");
-          button.classList.add("btn-secondary");
-          renderSVGIcons();
-        }, 2000);
-      } catch (err) {
-        console.warn("Falha ao copiar para a área de transferência:", err);
-      }
-    });
-  });
-}
-
-/**
- * Gerencia o botão circular flutuante de Voltar ao Topo com anel de progresso
- */
-function setupScrollTopProgress() {
-  const scrollTopBtn = document.getElementById("btn-back-to-top");
-  const progressCircle = document.getElementById("scroll-progress-circle");
-  if (!scrollTopBtn || !progressCircle) return;
-
-  const circumference = 2 * Math.PI * 22; // ~138.23
-
-  function updateProgress() {
-    const scrollTop = window.scrollY || document.documentElement.scrollTop;
-    const docHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
-    
-    // Visibilidade do botão
-    if (scrollTop > 200) {
-      scrollTopBtn.classList.add("visible");
-    } else {
-      scrollTopBtn.classList.remove("visible");
-    }
-
-    // Cálculo do preenchimento da borda (0 a 100%)
-    if (docHeight > 0) {
-      const scrollPercentage = Math.min(Math.max(scrollTop / docHeight, 0), 1);
-      const strokeOffset = circumference - (scrollPercentage * circumference);
-      progressCircle.style.strokeDashoffset = strokeOffset;
-    }
-  }
-
-  // Listener de rolagem com requestAnimationFrame para performance ultra suave
-  let ticking = false;
-  window.addEventListener("scroll", () => {
-    if (!ticking) {
-      window.requestAnimationFrame(() => {
-        updateProgress();
-        ticking = false;
-      });
-      ticking = true;
-    }
-  }, { passive: true });
-
-  // Ação de voltar ao topo
-  scrollTopBtn.addEventListener("click", () => {
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth"
-    });
-  });
-
-  // Executa uma vez no carregamento
-  updateProgress();
-}
