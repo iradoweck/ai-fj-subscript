@@ -39,6 +39,10 @@
 - **Justificação:** Garantir separação clara entre a marca do cliente perante os seus utilizadores finais e a empresa de tecnologia responsável pelo fornecimento e evolução do código.
 - **Impacto:** Todas as interfaces voltadas ao público (títulos, cabeçalhos, chamadas promocionais e suporte) refletem a MEGASON. As indicações de rodapé, metadados e documentação técnica identificam formalmente a Zedecks IT como desenvolvedora e mantenedora.
 
+### ADR 007: Gestão de Identidade Moçambicana e RBAC Seguro no Cliente
+- **Decisão:** O cadastro de utilizadores exige campos contextuais de Moçambique: as 11 províncias canónicas em select, validação de números de WhatsApp com operadoras nacionais (Vodacom 84/85, Movitel 86/87, Tmcel 82/83) e verificação anti-bot explícita. O papel `role: "customer"` é forçado na criação de qualquer conta pelo cliente; a promoção para `admin` só pode ser realizada diretamente na consola do Cloud Firestore ou por outro administrador autenticado via regras de segurança.
+- **Justificação:** Previne fraudes, garante que os acessos ao ChatGPT Plus sejam entregues no canal móvel correto (WhatsApp) e impede ataques de auto-elevação de privilégios.
+
 ---
 
 ## 3. Mapeamento de Ferramentas, Agentes e Skills do Antigravity

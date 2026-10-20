@@ -1,0 +1,342 @@
+/**
+ * Authentication Service — MEGASON
+ * Desenvolvido por Zedecks IT
+ * Gerencia registo com perfil moçambicano, login Email/Senha e Google, sessão e perfil do utilizador
+ */
+
+import { 
+  auth, 
+  db, 
+  googleProvider,
+  isFirebaseConfigured,
+  onAuthStateChanged,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+  sendPasswordResetEmail,
+  signInWithPopup,
+  updateProfile,
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  serverTimestamp
+} from "./firebase.js";
+
+/**
+ * Lista oficial das 11 províncias de Moçambique
+ */
+export const MOZAMBIQUE_PROVINCES = [
+  "Maputo Cidade",
+  "Maputo Província",
+  "Gaza",
+  "Inhambane",
+  "Sofala",
+  "Manica",
+  "Tete",
+  "Zambézia",
+  "Nampula",
+  "Cabo Delgado",
+  "Niassa"
+];
+
+/**
+ * Validação e formatação de número moçambicano
+ * Aceita: 82/83/84/85/86/87 com ou sem prefixo +258
+ * @param {string} phone 
+ * @returns {string|null} Retorna o número normalizado ou null se inválido
+ */
+export function normalizeMozambicanPhone(phone) {
+  if (!phone) return null;
+  const cleaned = phone.replace(/\D/g, "");
+  
+  // Ex: 258841234567 (12 dígitos)
+  if (cleaned.length === 12 && cleaned.startsWith("258")) {
+    const operator = cleaned.slice(3, 5);
+    if (["82", "83", "84", "85", "86", "87"].includes(operator)) {
+      return `+${cleaned}`;
+    }
+  }
+
+  // Ex: 841234567 (9 dígitos)
+  if (cleaned.length === 9) {
+    const operator = cleaned.slice(0, 2);
+    if (["82", "83", "84", "85", "86", "87"].includes(operator)) {
+      return `+258${cleaned}`;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Registra um novo utilizador no Firebase Auth e cria o perfil moçambicano em users/{uid}
+ * @param {object} userData
+ * @returns {Promise<object>} Perfil do utilizador registado
+ */
+export async function registerUser({
+  fullName,
+  email,
+  password,
+  whatsappNumber,
+  province,
+  district,
+  neighborhood,
+  username,
+  isHumanVerified
+}) {
+  if (!isHumanVerified) {
+    throw new Error("Confirmação anti-bot obrigatória ('Sou Humano').");
+  }
+
+  const normalizedPhone = normalizeMozambicanPhone(whatsappNumber);
+  if (!normalizedPhone) {
+    throw new Error("Número de WhatsApp moçambicano inválido. Use um número das operadoras Vodacom, Movitel ou Tmcel (ex: 84XXXXXXX).");
+  }
+
+  if (!province || !MOZAMBIQUE_PROVINCES.includes(province)) {
+    throw new Error("Por favor, selecione uma província válida de Moçambique.");
+  }
+
+  // Se o Firebase estiver configurado, usa SDK oficial
+  if (isFirebaseConfigured() && auth && db) {
+    const credential = await createUserWithEmailAndPassword(auth, email, password);
+    const user = credential.user;
+
+    // Atualiza nome visível no Auth
+    await updateProfile(user, { displayName: fullName });
+
+    const profileData = {
+      uid: user.uid,
+      fullName: fullName.trim(),
+      email: email.trim().toLowerCase(),
+      whatsappNumber: normalizedPhone,
+      province,
+      district: district ? district.trim() : "",
+      neighborhood: neighborhood ? neighborhood.trim() : "",
+      username: username ? username.trim().toLowerCase() : email.split("@")[0],
+      role: "customer",
+      isHumanVerified: true,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    };
+
+    // Cria documento em users/{uid}
+    await setDoc(doc(db, "users", user.uid), profileData);
+    return profileData;
+  }
+
+  // Modo Demonstração (Persistência Local para teste imediato de UI)
+  const mockUid = "demo_usr_" + Date.now();
+  const mockProfile = {
+    uid: mockUid,
+    fullName: fullName.trim(),
+    email: email.trim().toLowerCase(),
+    whatsappNumber: normalizedPhone,
+    province,
+    district: district ? district.trim() : "",
+    neighborhood: neighborhood ? neighborhood.trim() : "",
+    username: username ? username.trim().toLowerCase() : email.split("@")[0],
+    role: "customer",
+    isHumanVerified: true,
+    createdAt: new Date().toISOString(),
+    isMock: true
+  };
+
+  localStorage.setItem("megason_demo_user", JSON.stringify(mockProfile));
+  return mockProfile;
+}
+
+/**
+ * Autentica o utilizador com Email e Senha
+ * @param {string} email 
+ * @param {string} password 
+ * @returns {Promise<object>} Perfil do utilizador
+ */
+export async function loginUser(email, password) {
+  if (isFirebaseConfigured() && auth && db) {
+    const credential = await signInWithEmailAndPassword(auth, email, password);
+    const userDoc = await getDoc(doc(db, "users", credential.user.uid));
+    
+    if (userDoc.exists()) {
+      return userDoc.data();
+    }
+    
+    // Perfil básico de fallback
+    return {
+      uid: credential.user.uid,
+      email: credential.user.email,
+      fullName: credential.user.displayName || "Cliente MEGASON",
+      role: "customer"
+    };
+  }
+
+  // Modo Demonstração
+  const demo = localStorage.getItem("megason_demo_user");
+  if (demo) {
+    return JSON.parse(demo);
+  }
+
+  // Se for admin de demonstração
+  if (email.toLowerCase().includes("admin")) {
+    const adminProfile = {
+      uid: "demo_admin_01",
+      email: email.toLowerCase(),
+      fullName: "Administrador MEGASON",
+      role: "admin",
+      isMock: true
+    };
+    localStorage.setItem("megason_demo_user", JSON.stringify(adminProfile));
+    return adminProfile;
+  }
+
+  // Cliente padrão de demonstração
+  const defaultProfile = {
+    uid: "demo_usr_guest",
+    email: email.toLowerCase(),
+    fullName: "Cliente Demonstração",
+    role: "customer",
+    isMock: true
+  };
+  localStorage.setItem("megason_demo_user", JSON.stringify(defaultProfile));
+  return defaultProfile;
+}
+
+/**
+ * Autentica com Google (Popup)
+ * @returns {Promise<object>} Perfil do utilizador
+ */
+export async function loginWithGoogle() {
+  if (isFirebaseConfigured() && auth && db && googleProvider) {
+    const credential = await signInWithPopup(auth, googleProvider);
+    const user = credential.user;
+    const userRef = doc(db, "users", user.uid);
+    const userDoc = await getDoc(userRef);
+
+    if (userDoc.exists()) {
+      return userDoc.data();
+    }
+
+    // Primeiro login via Google: cria perfil com dados do Google
+    const profileData = {
+      uid: user.uid,
+      fullName: user.displayName || "Cliente MEGASON",
+      email: user.email.toLowerCase(),
+      whatsappNumber: "",
+      province: "Maputo Cidade",
+      district: "",
+      neighborhood: "",
+      username: (user.email.split("@")[0] || "user").toLowerCase(),
+      role: "customer",
+      isHumanVerified: true,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    };
+
+    await setDoc(userRef, profileData);
+    return profileData;
+  }
+
+  // Modo Demonstração
+  const googleDemo = {
+    uid: "demo_google_" + Date.now(),
+    email: "cliente.google@exemplo.com",
+    fullName: "Utilizador Google (Demo)",
+    role: "customer",
+    isMock: true
+  };
+  localStorage.setItem("megason_demo_user", JSON.stringify(googleDemo));
+  return googleDemo;
+}
+
+/**
+ * Encerra a sessão ativa
+ */
+export async function logoutUser() {
+  if (isFirebaseConfigured() && auth) {
+    await signOut(auth);
+  }
+  localStorage.removeItem("megason_demo_user");
+}
+
+/**
+ * Envia email de recuperação de senha
+ * @param {string} email 
+ */
+export async function resetPassword(email) {
+  if (isFirebaseConfigured() && auth) {
+    await sendPasswordResetEmail(auth, email);
+    return true;
+  }
+  // No modo demo simula envio com sucesso
+  return true;
+}
+
+/**
+ * Recupera o perfil completo de um utilizador pelo UID
+ * @param {string} uid 
+ * @returns {Promise<object|null>}
+ */
+export async function getUserProfile(uid) {
+  if (!uid) return null;
+
+  if (isFirebaseConfigured() && db) {
+    const snapshot = await getDoc(doc(db, "users", uid));
+    if (snapshot.exists()) {
+      return snapshot.data();
+    }
+  }
+
+  const demo = localStorage.getItem("megason_demo_user");
+  if (demo) {
+    const parsed = JSON.parse(demo);
+    if (parsed.uid === uid) return parsed;
+  }
+
+  return null;
+}
+
+/**
+ * Observa alterações de autenticação e chama o callback com estado completo
+ * @param {function} callback ({ user, profile, isAdmin })
+ * @returns {function} Unsubscribe function
+ */
+export function subscribeToAuthChanges(callback) {
+  if (isFirebaseConfigured() && auth) {
+    return onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        let profile = await getUserProfile(firebaseUser.uid);
+        if (!profile) {
+          profile = {
+            uid: firebaseUser.uid,
+            email: firebaseUser.email,
+            fullName: firebaseUser.displayName || "Cliente MEGASON",
+            role: "customer"
+          };
+        }
+        callback({
+          user: firebaseUser,
+          profile,
+          isAdmin: profile.role === "admin"
+        });
+      } else {
+        callback({ user: null, profile: null, isAdmin: false });
+      }
+    });
+  }
+
+  // Modo Demonstração: verifica localStorage
+  const demo = localStorage.getItem("megason_demo_user");
+  if (demo) {
+    const profile = JSON.parse(demo);
+    callback({
+      user: { uid: profile.uid, email: profile.email },
+      profile,
+      isAdmin: profile.role === "admin"
+    });
+  } else {
+    callback({ user: null, profile: null, isAdmin: false });
+  }
+
+  return () => {};
+}

@@ -1,6 +1,6 @@
 # Plano de Execução do MVP — Subscrições MEGASON
 
-> **Status Geral do Projeto:** Fase 0 concluída / Aguardando aprovação para Fase 1  
+> **Status Geral do Projeto:** Fases 0 a 4 concluídas / Pronta para Fase 5 (Checkout, Subscrição e Fatura)  
 > **Sistema / Cliente:** MEGASON  
 > **Desenvolvedora & Propriedade do Código:** Zedecks IT  
 > **Orçamento:** 8.500 MT (Âmbito estrito)  
@@ -48,7 +48,7 @@ Aplicação web estática para a **MEGASON** apresentar e comercializar subscri�
 | **1** | **Requisitos e Arquitectura Mínima** | Detalhar esquemas de dados, estados, transições e processos de segurança/admin. | **Concluída** |
 | **2** | **Fundação e Identidade Visual** | Criar base HTML/CSS modular (Light Mode ChatGPT/OpenAI), SVGs e módulo Firebase de exemplo. | **Concluída** |
 | **3** | **Landing Page e Planos Fixos** | Apresentar recursos da IA, "Como Funciona" em 4 passos, seleção de planos e CTA. | **Concluída** |
-| **4** | **Firebase Authentication** | Registo com campos Moçambique, login Email/Senha e Google, recuperação de senha. | Pendente |
+| **4** | **Firebase Authentication** | Registo com campos Moçambique, login Email/Senha e Google, recuperação de senha. | **Concluída** |
 | **5** | **Checkout, Subscrição e Fatura** | Fluxo de checkout com captura de comprovativo em texto, fatura interna pendente. | Pendente |
 | **6** | **Painel Administrativo** | Consulta de subscritores, validação de comprovativo em texto, aprovação e entrega de senhas/pasta. | Pendente |
 | **7** | **Segurança e Testes Essenciais** | Regras definitivas do Firestore (RBAC estrito), testes de limites e integridade. | Pendente |
