@@ -1,6 +1,6 @@
 # Plano de Execução do MVP — Subscrições MEGASON
 
-> **Status Geral do Projeto:** Fases 0 a 5 concluídas / Pronta para Fase 6 (Painel Administrativo)  
+> **Status Geral do Projeto:** Fases 0 a 6 concluídas / Pronta para Fase 7 (Segurança e Testes Essenciais)  
 > **Sistema / Cliente:** MEGASON  
 > **Desenvolvedora & Propriedade do Código:** Zedecks IT  
 > **Orçamento:** 8.500 MT (Âmbito estrito)  
@@ -50,7 +50,7 @@ Aplicação web estática para a **MEGASON** apresentar e comercializar subscri�
 | **3** | **Landing Page e Planos Fixos** | Apresentar recursos da IA, "Como Funciona" em 4 passos, seleção de planos e CTA. | **Concluída** |
 | **4** | **Firebase Authentication** | Registo com campos Moçambique, login Email/Senha e Google, recuperação de senha. | **Concluída** |
 | **5** | **Checkout, Subscrição e Fatura** | Fluxo de checkout com captura de comprovativo em texto, fatura interna pendente. | **Concluída** |
-| **6** | **Painel Administrativo** | Consulta de subscritores, validação de comprovativo em texto, aprovação e entrega de senhas/pasta. | Pendente |
+| **6** | **Painel Administrativo** | Consulta de subscritores, validação de comprovativo em texto, aprovação e entrega de senhas/pasta. | **Concluída** |
 | **7** | **Segurança e Testes Essenciais** | Regras definitivas do Firestore (RBAC estrito), testes de limites e integridade. | Pendente |
 | **8** | **Documentação Final** | Guias de configuração, manual de administração e relatórios operacionais. | Pendente |
 | **9** | **GitHub Pages e Entrega** | Configuração do domínio `ai.admin-megason.com` (CNAME), deploy e checklist final. | Pendente |

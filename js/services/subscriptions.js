@@ -255,6 +255,361 @@ export async function getSubscriptionById(subscriptionId) {
   return demoList.find(s => s.id === subscriptionId) || null;
 }
 
+/**
+ * Consulta todas as subscrições no sistema (Acesso restrito ao Administrador)
+ * @param {string} [filterStatus] - Filtro opcional por status ('pending', 'active', etc.)
+ * @returns {Promise<Array>}
+ */
+export async function getAllSubscriptions(filterStatus = "all") {
+  if (isFirebaseConfigured() && db) {
+    try {
+      let q;
+      if (filterStatus && filterStatus !== "all") {
+        q = query(
+          collection(db, "subscriptions"),
+          where("status", "==", filterStatus),
+          orderBy("createdAt", "desc")
+        );
+      } else {
+        q = query(
+          collection(db, "subscriptions"),
+          orderBy("createdAt", "desc")
+        );
+      }
+      const snapshot = await getDocs(q);
+      const list = [];
+      snapshot.forEach(docSnap => list.push(docSnap.data()));
+      return list;
+    } catch (err) {
+      console.warn("Erro ao buscar subscrições no Firestore:", err);
+    }
+  }
+
+  // Modo Demonstração
+  const demoList = getMockData("megason_demo_subscriptions");
+  if (filterStatus && filterStatus !== "all") {
+    return demoList.filter(s => s.status === filterStatus);
+  }
+  return demoList;
+}
+
+/**
+ * Consulta todas as faturas no sistema (Acesso restrito ao Administrador)
+ * @param {string} [filterStatus] - Filtro opcional por status ('pending', 'paid', 'cancelled')
+ * @returns {Promise<Array>}
+ */
+export async function getAllInvoices(filterStatus = "all") {
+  if (isFirebaseConfigured() && db) {
+    try {
+      let q;
+      if (filterStatus && filterStatus !== "all") {
+        q = query(
+          collection(db, "invoices"),
+          where("status", "==", filterStatus),
+          orderBy("createdAt", "desc")
+        );
+      } else {
+        q = query(
+          collection(db, "invoices"),
+          orderBy("createdAt", "desc")
+        );
+      }
+      const snapshot = await getDocs(q);
+      const list = [];
+      snapshot.forEach(docSnap => list.push(docSnap.data()));
+      return list;
+    } catch (err) {
+      console.warn("Erro ao buscar faturas no Firestore:", err);
+    }
+  }
+
+  // Modo Demonstração
+  const demoList = getMockData("megason_demo_invoices");
+  if (filterStatus && filterStatus !== "all") {
+    return demoList.filter(inv => inv.status === filterStatus);
+  }
+  return demoList;
+}
+
+/**
+ * Aprova o pagamento de uma subscrição pendente e entrega a pasta/credenciais do ChatGPT Plus
+ * @param {object} params
+ * @returns {Promise<boolean>}
+ */
+export async function approveSubscriptionOrder({
+  subscriptionId,
+  invoiceId,
+  adminUid,
+  folderName,
+  accessCredentials,
+  adminNotes
+}) {
+  if (!subscriptionId) throw new Error("ID da subscrição é obrigatório.");
+  if (!folderName || folderName.trim().length === 0) {
+    throw new Error("Por favor, informe o nome da pasta do ChatGPT Plus criada para o cliente.");
+  }
+  if (!accessCredentials || accessCredentials.trim().length === 0) {
+    throw new Error("Por favor, informe os dados ou instruções de acesso da conta ChatGPT Plus.");
+  }
+
+  const sub = await getSubscriptionById(subscriptionId);
+  if (!sub) throw new Error("Subscrição não encontrada.");
+
+  const durationDays = sub.durationDays || 30;
+  const now = new Date();
+  const startDate = now.toISOString();
+  const endDate = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000).toISOString();
+
+  if (isFirebaseConfigured() && db) {
+    const subRef = doc(db, "subscriptions", subscriptionId);
+    await updateDoc(subRef, {
+      status: "active",
+      folderName: folderName.trim(),
+      accessCredentials: accessCredentials.trim(),
+      startDate,
+      endDate,
+      approvedBy: adminUid || "admin",
+      approvedAt: serverTimestamp(),
+      adminNotes: adminNotes ? adminNotes.trim() : null,
+      updatedAt: serverTimestamp()
+    });
+
+    const targetInvoiceId = invoiceId || sub.latestInvoiceId;
+    if (targetInvoiceId) {
+      const invRef = doc(db, "invoices", targetInvoiceId);
+      await updateDoc(invRef, {
+        status: "paid",
+        paidAt: serverTimestamp(),
+        confirmedBy: adminUid || "admin",
+        adminNotes: adminNotes ? adminNotes.trim() : null,
+        updatedAt: serverTimestamp()
+      });
+    }
+
+    return true;
+  }
+
+  // Modo Demonstração
+  const subs = getMockData("megason_demo_subscriptions");
+  const subIndex = subs.findIndex(s => s.id === subscriptionId);
+  if (subIndex !== -1) {
+    subs[subIndex] = {
+      ...subs[subIndex],
+      status: "active",
+      folderName: folderName.trim(),
+      accessCredentials: accessCredentials.trim(),
+      startDate,
+      endDate,
+      approvedBy: adminUid || "admin_demo",
+      approvedAt: now.toISOString(),
+      adminNotes: adminNotes ? adminNotes.trim() : null
+    };
+    localStorage.setItem("megason_demo_subscriptions", JSON.stringify(subs));
+  }
+
+  const targetInvoiceId = invoiceId || (subs[subIndex] && subs[subIndex].latestInvoiceId);
+  if (targetInvoiceId) {
+    const invs = getMockData("megason_demo_invoices");
+    const invIndex = invs.findIndex(inv => inv.id === targetInvoiceId);
+    if (invIndex !== -1) {
+      invs[invIndex] = {
+        ...invs[invIndex],
+        status: "paid",
+        paidAt: now.toISOString(),
+        confirmedBy: adminUid || "admin_demo",
+        adminNotes: adminNotes ? adminNotes.trim() : null
+      };
+      localStorage.setItem("megason_demo_invoices", JSON.stringify(invs));
+    }
+  }
+
+  return true;
+}
+
+/**
+ * Suspende uma subscrição activa
+ * @param {object} params
+ * @returns {Promise<boolean>}
+ */
+export async function suspendSubscription({ subscriptionId, adminUid, reason }) {
+  if (!subscriptionId) throw new Error("ID da subscrição é obrigatório.");
+  if (!reason || reason.trim().length === 0) {
+    throw new Error("Por favor, informe o motivo da suspensão.");
+  }
+
+  const now = new Date();
+
+  if (isFirebaseConfigured() && db) {
+    const subRef = doc(db, "subscriptions", subscriptionId);
+    await updateDoc(subRef, {
+      status: "suspended",
+      suspendedBy: adminUid || "admin",
+      suspendedAt: serverTimestamp(),
+      suspendReason: reason.trim(),
+      updatedAt: serverTimestamp()
+    });
+    return true;
+  }
+
+  // Modo Demonstração
+  const subs = getMockData("megason_demo_subscriptions");
+  const idx = subs.findIndex(s => s.id === subscriptionId);
+  if (idx !== -1) {
+    subs[idx] = {
+      ...subs[idx],
+      status: "suspended",
+      suspendedBy: adminUid || "admin_demo",
+      suspendedAt: now.toISOString(),
+      suspendReason: reason.trim()
+    };
+    localStorage.setItem("megason_demo_subscriptions", JSON.stringify(subs));
+  }
+  return true;
+}
+
+/**
+ * Reativa uma subscrição que estava suspensa
+ * @param {object} params
+ * @returns {Promise<boolean>}
+ */
+export async function reactivateSubscription({ subscriptionId, adminUid }) {
+  if (!subscriptionId) throw new Error("ID da subscrição é obrigatório.");
+
+  const now = new Date();
+
+  if (isFirebaseConfigured() && db) {
+    const subRef = doc(db, "subscriptions", subscriptionId);
+    await updateDoc(subRef, {
+      status: "active",
+      reactivatedBy: adminUid || "admin",
+      reactivatedAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+    return true;
+  }
+
+  // Modo Demonstração
+  const subs = getMockData("megason_demo_subscriptions");
+  const idx = subs.findIndex(s => s.id === subscriptionId);
+  if (idx !== -1) {
+    subs[idx] = {
+      ...subs[idx],
+      status: "active",
+      reactivatedBy: adminUid || "admin_demo",
+      reactivatedAt: now.toISOString()
+    };
+    localStorage.setItem("megason_demo_subscriptions", JSON.stringify(subs));
+  }
+  return true;
+}
+
+/**
+ * Cancela/Rejeita um pedido de subscrição e invalida a fatura correspondente
+ * @param {object} params
+ * @returns {Promise<boolean>}
+ */
+export async function cancelSubscriptionOrder({ subscriptionId, invoiceId, adminUid, reason }) {
+  if (!subscriptionId) throw new Error("ID da subscrição é obrigatório.");
+  if (!reason || reason.trim().length === 0) {
+    throw new Error("Por favor, informe a razão do cancelamento/rejeição.");
+  }
+
+  const now = new Date();
+
+  if (isFirebaseConfigured() && db) {
+    const subRef = doc(db, "subscriptions", subscriptionId);
+    await updateDoc(subRef, {
+      status: "cancelled",
+      cancelledBy: adminUid || "admin",
+      cancelledAt: serverTimestamp(),
+      cancelReason: reason.trim(),
+      updatedAt: serverTimestamp()
+    });
+
+    if (invoiceId) {
+      const invRef = doc(db, "invoices", invoiceId);
+      await updateDoc(invRef, {
+        status: "cancelled",
+        cancelledAt: serverTimestamp(),
+        cancelledBy: adminUid || "admin",
+        cancelReason: reason.trim(),
+        updatedAt: serverTimestamp()
+      });
+    }
+    return true;
+  }
+
+  // Modo Demonstração
+  const subs = getMockData("megason_demo_subscriptions");
+  const subIdx = subs.findIndex(s => s.id === subscriptionId);
+  if (subIdx !== -1) {
+    subs[subIdx] = {
+      ...subs[subIdx],
+      status: "cancelled",
+      cancelledBy: adminUid || "admin_demo",
+      cancelledAt: now.toISOString(),
+      cancelReason: reason.trim()
+    };
+    localStorage.setItem("megason_demo_subscriptions", JSON.stringify(subs));
+  }
+
+  if (invoiceId) {
+    const invs = getMockData("megason_demo_invoices");
+    const invIdx = invs.findIndex(i => i.id === invoiceId);
+    if (invIdx !== -1) {
+      invs[invIdx] = {
+        ...invs[invIdx],
+        status: "cancelled",
+        cancelledAt: now.toISOString(),
+        cancelledBy: adminUid || "admin_demo",
+        cancelReason: reason.trim()
+      };
+      localStorage.setItem("megason_demo_invoices", JSON.stringify(invs));
+    }
+  }
+
+  return true;
+}
+
+/**
+ * Calcula os indicadores financeiros e operacionais consolidados
+ * @returns {Promise<object>}
+ */
+export async function getFinancialMetrics() {
+  const [subscriptions, invoices] = await Promise.all([
+    getAllSubscriptions("all"),
+    getAllInvoices("all")
+  ]);
+
+  let totalReceived = 0;
+  let totalBilled = 0;
+
+  invoices.forEach(inv => {
+    const amt = Number(inv.amount) || 0;
+    if (inv.status === "paid") {
+      totalReceived += amt;
+      totalBilled += amt;
+    } else if (inv.status === "pending") {
+      totalBilled += amt;
+    }
+    // Faturas canceladas não entram no total faturado ou são desconsideradas
+  });
+
+  const activeSubscribers = subscriptions.filter(s => s.status === "active").length;
+  const pendingOrders = subscriptions.filter(s => s.status === "pending").length;
+  const suspendedOrders = subscriptions.filter(s => s.status === "suspended").length;
+
+  return {
+    totalReceived,
+    totalBilled,
+    activeSubscribers,
+    pendingOrders,
+    suspendedOrders,
+    totalSubscriptions: subscriptions.length,
+    totalInvoices: invoices.length
+  };
+}
+
 // Helpers para Modo Demonstração
 function getMockData(key) {
   try {

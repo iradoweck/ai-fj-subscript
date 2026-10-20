@@ -704,3 +704,309 @@
     justify-content: space-between;
   }
 }
+
+/* ==========================================================================
+   Painel Administrativo — KPIs, Abas, Tabelas e Badges
+   ========================================================================== */
+
+/* Grid de Métricas / KPIs */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+@media (min-width: 640px) {
+  .kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .kpi-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.kpi-card {
+  background-color: var(--color-bg-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-xl);
+  padding: var(--space-5);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.kpi-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.kpi-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-2);
+}
+
+.kpi-title {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-secondary);
+}
+
+.kpi-icon-wrap {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.kpi-value {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  line-height: 1.1;
+  margin-bottom: var(--space-1);
+}
+
+.kpi-caption {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+/* Cores específicas de KPI */
+.kpi-green .kpi-icon-wrap {
+  background-color: var(--color-success-bg);
+  color: var(--color-success-text);
+}
+
+.kpi-blue .kpi-icon-wrap {
+  background-color: var(--color-info-bg);
+  color: var(--color-info-text);
+}
+
+.kpi-amber .kpi-icon-wrap {
+  background-color: var(--color-warning-bg);
+  color: var(--color-warning-text);
+}
+
+.kpi-purple .kpi-icon-wrap {
+  background-color: #F3E8FF;
+  color: #7E22CE;
+}
+
+/* Abas Administrativas */
+.admin-tabs-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  border-bottom: 1px solid var(--color-border-subtle);
+  margin-bottom: var(--space-6);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.admin-tab-btn {
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  padding: var(--space-3) var(--space-4);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  white-space: nowrap;
+  transition: all var(--transition-fast);
+}
+
+.admin-tab-btn:hover {
+  color: var(--color-text-primary);
+}
+
+.admin-tab-btn.active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+
+/* Barra de Filtros e Busca */
+.admin-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+
+@media (min-width: 768px) {
+  .admin-toolbar {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.admin-search-box {
+  position: relative;
+  flex: 1;
+  max-width: 420px;
+}
+
+.admin-search-box svg {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+
+.admin-search-box input {
+  padding-left: 36px;
+  width: 100%;
+}
+
+.admin-filter-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+/* Badges de Status Operacional */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.status-badge-pending {
+  background-color: var(--color-warning-bg);
+  color: var(--color-warning-text);
+  border: 1px solid #FDE68A;
+}
+
+.status-badge-active {
+  background-color: var(--color-success-bg);
+  color: var(--color-success-text);
+  border: 1px solid var(--color-primary-border);
+}
+
+.status-badge-suspended {
+  background-color: #FED7AA;
+  color: #C2410C;
+  border: 1px solid #FDBA74;
+}
+
+.status-badge-cancelled {
+  background-color: var(--color-danger-bg);
+  color: var(--color-danger-text);
+  border: 1px solid #FECACA;
+}
+
+.status-badge-paid {
+  background-color: var(--color-success-bg);
+  color: var(--color-success-text);
+  border: 1px solid var(--color-primary-border);
+}
+
+/* Caixa de Comprovativo SMS */
+.proof-box {
+  background-color: var(--color-bg-subtle);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-primary);
+  line-height: var(--line-height-relaxed);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 180px;
+  overflow-y: auto;
+  position: relative;
+}
+
+/* Tabela de Dados no Admin */
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  background-color: var(--color-bg-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.table-responsive table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: var(--font-size-sm);
+}
+
+.table-responsive th {
+  background-color: var(--color-bg-subtle);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.table-responsive td {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border-subtle);
+  color: var(--color-text-primary);
+  vertical-align: middle;
+}
+
+.table-responsive tr:last-child td {
+  border-bottom: none;
+}
+
+.table-responsive tr:hover td {
+  background-color: var(--color-bg-hover);
+}
+
+/* Guard Card (Acesso Negado ou Carregando) */
+.guard-card {
+  max-width: 480px;
+  margin: var(--space-12) auto;
+  padding: var(--space-8);
+  background-color: var(--color-bg-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+  text-align: center;
+}
+
+.guard-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-full);
+  background-color: var(--color-danger-bg);
+  color: var(--color-danger-text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--space-4);
+}
