@@ -21,6 +21,11 @@ import {
   subscribeToAuthChanges,
   normalizeMozambicanPhone
 } from "./services/auth.js";
+import {
+  createSubscriptionOrder,
+  getUserSubscriptions,
+  getUserInvoices
+} from "./services/subscriptions.js";
 
 // Estado global de autenticação em memória
 let currentAuthState = {
@@ -46,6 +51,7 @@ function initApp() {
   setupModalEvents();
   setupAuthModal();
   setupAuthStateListener();
+  setupMySubModal();
   setupMobileMenu();
   setupScrollTopProgress();
 }
@@ -387,26 +393,27 @@ function setupModalEvents() {
           userEmail = newProfile.email;
         }
 
-        // Prepara os dados da subscrição pendente vinculados ao UID do utilizador
-        const pendingSubscription = {
+        // Persiste a subscrição e a fatura associada via Subscriptions Service
+        const result = await createSubscriptionOrder({
           userId,
+          planId: plan ? plan.id : "plan-30d",
           customerName: name,
           customerEmail: userEmail,
-          whatsapp,
-          planId: plan ? plan.id : "plan-30d",
-          planName: plan ? plan.name : "30 Dias",
-          price: plan ? plan.price : 300,
-          currency: "MZN",
-          durationDays: plan ? plan.durationDays : 30,
-          proofText,
-          status: "pending",
-          submittedAt: new Date().toISOString()
-        };
+          customerWhatsapp: whatsapp,
+          proofText
+        });
 
-        try {
-          sessionStorage.setItem("megason_pending_sub", JSON.stringify(pendingSubscription));
-        } catch (err) {
-          console.warn("Armazenamento local restrito:", err);
+        // Atualiza mensagem no Passo 3 com o ID da fatura gerada
+        const step3 = document.getElementById("checkout-step-3");
+        if (step3 && result.invoice) {
+          const infoP = step3.querySelector("p");
+          if (infoP) {
+            infoP.innerHTML = `
+              Recebemos o seu comprovativo com sucesso para o <strong>Plano ${plan ? plan.name : "30 Dias"}</strong>. 
+              A sua fatura gerada é a <strong>#${result.invoice.id}</strong>.<br><br>
+              A equipa da <strong>MEGASON</strong> já está a validar a transação e ativará as suas senhas e a sua pasta exclusiva no seu WhatsApp em instantes!
+            `;
+          }
         }
 
         // Avança para o Passo 3 (Confirmação de Sucesso)
@@ -733,13 +740,20 @@ function updateHeaderAuth(state) {
       <span style="font-size: var(--font-size-xs); font-weight: var(--font-weight-medium); color: var(--color-text-secondary);">
         Olá, <strong>${firstName}</strong>
       </span>
-      <a href="#planos" class="btn btn-secondary btn-sm">
-        Novo Plano
-      </a>
+      <button type="button" class="btn btn-secondary btn-sm" id="btn-header-my-subs">
+        Minha Subscrição
+      </button>
       <button type="button" class="btn btn-outline btn-sm" id="btn-header-logout" title="Terminar Sessão">
         Sair
       </button>
     `;
+
+    const mySubsBtn = document.getElementById("btn-header-my-subs");
+    if (mySubsBtn) {
+      mySubsBtn.addEventListener("click", () => {
+        if (window.__openMySubModal) window.__openMySubModal();
+      });
+    }
   }
 
   const logoutBtn = document.getElementById("btn-header-logout");
@@ -749,6 +763,191 @@ function updateHeaderAuth(state) {
       location.reload();
     });
   }
+}
+
+/**
+ * Gerencia a consulta de subscrições e faturas do cliente conectado
+ */
+function setupMySubModal() {
+  const modal = document.getElementById("my-sub-modal");
+  const closeBtn = document.getElementById("btn-close-my-sub-modal");
+  const modalBody = document.getElementById("my-sub-modal-body");
+
+  function closeModal() {
+    if (modal) {
+      modal.style.display = "none";
+      document.body.style.overflow = "";
+    }
+  }
+
+  if (closeBtn) closeBtn.addEventListener("click", closeModal);
+  if (modal) {
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal) closeModal();
+    });
+  }
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && modal && modal.style.display === "flex") {
+      closeModal();
+    }
+  });
+
+  async function openMySubModal() {
+    if (!modal || !modalBody) return;
+    modal.style.display = "flex";
+    document.body.style.overflow = "hidden";
+
+    if (!currentAuthState.user) {
+      modalBody.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">${Icons.lock}</div>
+          <h4 class="empty-state-title">Acesso Restrito</h4>
+          <p class="empty-state-description">Inicie sessão na sua conta para consultar as suas subscrições e faturas.</p>
+          <button type="button" class="btn btn-primary" id="btn-my-sub-login">Entrar na Conta</button>
+        </div>
+      `;
+      document.getElementById("btn-my-sub-login")?.addEventListener("click", () => {
+        closeModal();
+        if (window.__openAuthModal) window.__openAuthModal("login");
+      });
+      return;
+    }
+
+    modalBody.innerHTML = `
+      <div class="loading-wrap">
+        <div class="loading-spinner"></div>
+        <span>A consultar as suas subscrições...</span>
+      </div>
+    `;
+
+    try {
+      const subs = await getUserSubscriptions(currentAuthState.user.uid);
+      const invoices = await getUserInvoices(currentAuthState.user.uid);
+
+      if (!subs || subs.length === 0) {
+        modalBody.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">${Icons.sparkles}</div>
+            <h4 class="empty-state-title">Ainda Não Possui Subscrições Ativas</h4>
+            <p class="empty-state-description">
+              Garanta agora o seu acesso ao ChatGPT Plus para desbloquear modelos avançados e acelerar os seus estudos e trabalho.
+            </p>
+            <button type="button" class="btn btn-primary" id="btn-my-sub-to-plans">Ver Planos Disponíveis</button>
+          </div>
+        `;
+        document.getElementById("btn-my-sub-to-plans")?.addEventListener("click", () => {
+          closeModal();
+          document.querySelector("#planos")?.scrollIntoView({ behavior: "smooth" });
+        });
+        return;
+      }
+
+      const activeSub = subs[0];
+      const statusLabels = {
+        pending: { text: "Pendente de Conferência", class: "badge-pending" },
+        active: { text: "Ativa", class: "badge-active" },
+        suspended: { text: "Suspensa", class: "badge-suspended" },
+        expired: { text: "Expirada", class: "badge-expired" },
+        cancelled: { text: "Cancelada", class: "badge-cancelled" }
+      };
+      const badgeInfo = statusLabels[activeSub.status] || { text: activeSub.status, class: "badge-pending" };
+
+      let html = `
+        <div class="card" style="margin-bottom: var(--space-4); border-color: var(--color-primary-border); background-color: var(--color-bg-subtle);">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: var(--space-2);">
+            <div>
+              <h4 style="font-size: var(--font-size-base); font-weight: var(--font-weight-bold); margin-bottom: 2px;">
+                Plano ${activeSub.planName}
+              </h4>
+              <span style="font-size: var(--font-size-xs); color: var(--color-text-muted);">
+                Duração: ${activeSub.durationDays} dias • ${activeSub.price} MT
+              </span>
+            </div>
+            <span class="badge ${badgeInfo.class}">${badgeInfo.text}</span>
+          </div>
+      `;
+
+      if (activeSub.status === "pending") {
+        html += `
+          <div class="alert alert-warning" style="margin-top: var(--space-3); margin-bottom: 0; font-size: var(--font-size-xs); line-height: 1.5;">
+            <div>
+              <strong>Pagamento sob conferência:</strong> A equipa da MEGASON está a conferir o seu SMS. Assim que validado, a sua pasta e senhas serão disponibilizadas aqui e enviadas para o seu WhatsApp (${activeSub.customerWhatsapp}).
+            </div>
+          </div>
+        `;
+      } else if (activeSub.status === "active") {
+        html += `
+          <div style="margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--color-border-subtle); font-size: var(--font-size-xs);">
+            <div style="margin-bottom: var(--space-2);">
+              <strong>Sua Pasta ChatGPT Plus:</strong> 
+              <span class="payment-method-value" style="font-weight: var(--font-weight-bold); color: var(--color-primary);">${activeSub.folderName || "Pasta Padrão"}</span>
+            </div>
+            ${activeSub.accessCredentials ? `
+              <div style="margin-bottom: var(--space-2);">
+                <label style="display: block; font-weight: var(--font-weight-semibold); margin-bottom: 4px;">Credenciais / Instruções de Acesso:</label>
+                <div style="background-color: var(--color-bg-surface); padding: var(--space-3); border-radius: var(--radius-md); border: 1px solid var(--color-border-subtle); white-space: pre-wrap; font-family: var(--font-family-mono);">${activeSub.accessCredentials}</div>
+              </div>
+            ` : ""}
+          </div>
+        `;
+      }
+
+      html += `</div>`;
+
+      // Histórico de Faturas
+      if (invoices && invoices.length > 0) {
+        html += `
+          <h5 style="font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); margin-bottom: var(--space-2); color: var(--color-text-primary);">
+            Histórico de Faturas
+          </h5>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Fatura</th>
+                  <th>Plano</th>
+                  <th>Valor</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+        `;
+        invoices.forEach(inv => {
+          const invStatusLabels = {
+            pending: { text: "Pendente", class: "badge-pending" },
+            paid: { text: "Pago", class: "badge-paid" },
+            rejected: { text: "Recusado", class: "badge-cancelled" }
+          };
+          const invBadge = invStatusLabels[inv.status] || { text: inv.status, class: "badge-pending" };
+          html += `
+            <tr>
+              <td><span style="font-family: var(--font-family-mono); font-size: 11px;">#${inv.id.slice(0, 8)}</span></td>
+              <td>${inv.planName}</td>
+              <td><strong>${inv.amount} MT</strong></td>
+              <td><span class="badge ${invBadge.class}">${invBadge.text}</span></td>
+            </tr>
+          `;
+        });
+        html += `
+              </tbody>
+            </table>
+          </div>
+        `;
+      }
+
+      modalBody.innerHTML = html;
+
+    } catch (err) {
+      modalBody.innerHTML = `
+        <div class="alert alert-danger" style="margin-bottom: 0;">
+          ${Icons.alertTriangle}
+          <div>Não foi possível carregar os dados da subscrição: ${err.message}</div>
+        </div>
+      `;
+    }
+  }
+
+  window.__openMySubModal = openMySubModal;
 }
 
 /**
