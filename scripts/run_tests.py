@@ -172,10 +172,10 @@ def test_index_html_tags():
         checker.feed(f.read())
     assert len(checker.tags) == 0, f"Tags desbalanceadas: {checker.tags}"
 
-@test("Validação de fechamento perfeito de tags em admin.html")
+@test("Validação de fechamento perfeito de tags em admin/index.html")
 def test_admin_html_tags():
     checker = HtmlBalanceChecker()
-    with open(os.path.join(ROOT_DIR, "admin.html"), "r", encoding="utf-8") as f:
+    with open(os.path.join(ROOT_DIR, "admin", "index.html"), "r", encoding="utf-8") as f:
         checker.feed(f.read())
     assert len(checker.tags) == 0, f"Tags desbalanceadas: {checker.tags}"
 
@@ -183,11 +183,11 @@ def test_admin_html_tags():
 def test_no_emojis():
     # Regex para faixa de emojis unicode comuns
     emoji_pattern = re.compile(r"[\U0001F300-\U0001F64F\U0001F680-\U0001F6FF\U0001F900-\U0001F9FF]")
-    for filename in ["index.html", "admin.html"]:
-        with open(os.path.join(ROOT_DIR, filename), "r", encoding="utf-8") as f:
+    for filepath in ["index.html", os.path.join("admin", "index.html")]:
+        with open(os.path.join(ROOT_DIR, filepath), "r", encoding="utf-8") as f:
             content = f.read()
         emojis_found = emoji_pattern.findall(content)
-        assert len(emojis_found) == 0, f"Emojis encontrados em {filename}: {emojis_found}"
+        assert len(emojis_found) == 0, f"Emojis encontrados em {filepath}: {emojis_found}"
 
 @test("Auditoria de Créditos: Respeito à marca MEGASON e crédito exclusivo no rodapé")
 def test_brand_credits():

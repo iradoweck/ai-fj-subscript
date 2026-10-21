@@ -92,7 +92,7 @@ Como o sistema impede a auto-promoção de utilizadores por regras de segurança
 2. Aceda à Consola do Firebase → **Firestore Database** → coleção `users`.
 3. Localize o documento correspondente ao UID do utilizador criado.
 4. Altere o campo `role` de `"customer"` para `"admin"`.
-5. Pronto! Esse utilizador já tem acesso irrestrito ao painel em `https://ai.admin-megason.site/admin.html`.
+5. Pronto! Esse utilizador já tem acesso irrestrito ao painel em `https://ai.admin-megason.site/admin`.
 
 ---
 

@@ -818,7 +818,7 @@ function updateHeaderAuth(state) {
   if (state.isAdmin) {
     headerActions.innerHTML = `
       <span class="badge badge-active" style="padding: 4px 10px; font-size: 11px;">Administrador</span>
-      <a href="admin.html" class="btn btn-secondary btn-sm" id="btn-header-admin">
+      <a href="admin/" class="btn btn-secondary btn-sm" id="btn-header-admin">
         Painel Admin
       </a>
       <button type="button" class="btn btn-outline btn-sm" id="btn-header-logout" title="Terminar Sessão">

@@ -3,7 +3,7 @@
 > **Aplicação:** Subscrições ChatGPT Plus (GPT-6 Astra)  
 > **Empresa Titular:** MEGASON  
 > **Desenvolvido por:** Zedecks IT  
-> **Acesso Web:** `https://ai.admin-megason.site/admin.html` (ou local `admin.html`)
+> **Acesso Web:** `https://ai.admin-megason.site/admin` (ou local `/admin`)
 
 ---
 
@@ -13,7 +13,7 @@ O **Painel Administrativo da MEGASON** é a central de controlo operacional para
 
 ### Regras de Acesso e RBAC
 - **Acesso Restrito:** Apenas utilizadores com o atributo `role: "admin"` no documento `users/{uid}` do Cloud Firestore conseguem visualizar dados e executar operações no painel.
-- **Proteção Automática (Route Guard):** Visitantes anónimos ou clientes com `role: "customer"` que tentem aceder ao `/admin.html` deparam-se imediatamente com a tela de bloqueio e são impedidos de consultar dados confidenciais ou métricas financeiras.
+- **Proteção Automática (Route Guard):** Visitantes anónimos ou clientes com `role: "customer"` que tentem aceder ao `/admin` deparam-se imediatamente com a tela de bloqueio e são impedidos de consultar dados confidenciais ou métricas financeiras.
 - **Segurança Nativa:** Toda a segurança é reforçada a nível do Cloud Firestore (`firestore.rules`). Tentativas de manipulação de parâmetros no navegador são bloqueadas diretamente pelo banco de dados.
 
 ---
@@ -94,7 +94,7 @@ Para configurar a primeira conta de administrador com segurança:
 2. No Console do Firebase (aba **Firestore Database**), aceder à coleção `users`.
 3. Localizar o documento correspondente ao UID do administrador.
 4. Alterar o campo `role` de `"customer"` para `"admin"`.
-5. Recarregar a página `/admin.html`. O sistema concederá acesso imediato e permanente às ferramentas de gestão.
+5. Recarregar a página `/admin`. O sistema concederá acesso imediato e permanente às ferramentas de gestão.
 
 > [!IMPORTANT]
 > Nunca partilhe credenciais de administrador em grupos públicos. Mantenha os números de contacto dos clientes em sigilo conforme a Lei de Proteção de Dados.

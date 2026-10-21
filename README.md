@@ -51,7 +51,9 @@ Seguindo estritamente a filosofia de engenharia limpa e o teto orçamentário do
 ai-fj-subscript/
 ├── CNAME                         # Domínio personalizado (ai.admin-megason.site)
 ├── index.html                    # Loja pública e landing page com checkout
-├── admin.html                    # Painel administrativo protegido por RBAC
+├── admin/
+│   └── index.html                # Painel administrativo canónico (/admin)
+├── admin.html                    # Redirecionamento de compatibilidade para /admin
 ├── 404.html                      # Roteamento estático para GitHub Pages
 ├── firestore.rules               # Regras de segurança Zero Trust do Firestore
 ├── firestore.indexes.json        # Índices compostos para consultas
@@ -97,8 +99,8 @@ No terminal, a partir da raiz do projeto:
 python3 -m http.server 1080
 ```
 Em seguida, aceda a:
-- Loja Pública: `http://localhost:1080/index.html`
-- Painel Administrativo: `http://localhost:1080/admin.html`
+- Loja Pública: `http://localhost:1080/`
+- Painel Administrativo: `http://localhost:1080/admin`
 
 ### Opção 2: VS Code Live Server / Extensões de Navegador
 Abra a pasta do projeto no VS Code e inicie com a extensão *Live Server*.
