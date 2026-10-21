@@ -3,7 +3,7 @@
  * Substitua pelas credenciais obtidas no console.firebase.google.com
  */
 
-const firebaseConfig = {
+export const firebaseConfig = {
   apiKey: "AIzaSyAchV5ekzAN-YQ6niQWAYqu02CaN_CAYb0",
   authDomain: "fj-megason.firebaseapp.com",
   projectId: "fj-megason",
