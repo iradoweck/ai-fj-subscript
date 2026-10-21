@@ -3,13 +3,14 @@
  * Substitua pelas credenciais obtidas no console.firebase.google.com
  */
 
-export const firebaseConfig = {
-  apiKey: "YOUR_FIREBASE_API_KEY",
-  authDomain: "ai-fj-subscript.firebaseapp.com",
-  projectId: "ai-fj-subscript",
-  storageBucket: "ai-fj-subscript.appspot.com",
-  messagingSenderId: "000000000000",
-  appId: "1:000000000000:web:000000000000"
+const firebaseConfig = {
+  apiKey: "AIzaSyAchV5ekzAN-YQ6niQWAYqu02CaN_CAYb0",
+  authDomain: "fj-megason.firebaseapp.com",
+  projectId: "fj-megason",
+  storageBucket: "fj-megason.firebasestorage.app",
+  messagingSenderId: "164495964021",
+  appId: "1:164495964021:web:3ec8cfa5781b1d1de5853c",
+  measurementId: "G-C9CHNRPMER"
 };
 
 export const isFirebaseConfigured = () => {

@@ -243,6 +243,272 @@ export async function getUserInvoices(userId) {
  * @param {string} subscriptionId 
  * @returns {Promise<object|null>}
  */
+/**
+ * Localiza um pedido ou comprovativo recente através do Email ou Número de WhatsApp
+ * Usado para permitir ao cliente finalizar/vincular a sua conta caso já tenha submetido comprovativo
+ * @param {string} contact - Email ou número de WhatsApp
+ * @returns {Promise<object|null>} Retorna { subscription, invoice } ou null
+ */
+export async function findOrderByContact(contact) {
+  if (!contact) return null;
+  const cleanContact = contact.trim().toLowerCase();
+  const digitsOnly = contact.replace(/\D/g, "");
+
+  if (isFirebaseConfigured() && db) {
+    try {
+      // 1. Tenta buscar por email nas faturas
+      let q = query(
+        collection(db, "invoices"),
+        where("customerEmail", "==", cleanContact),
+        orderBy("createdAt", "desc")
+      );
+      let snapshot = await getDocs(q);
+      
+      // 2. Se não encontrou por email, tenta por WhatsApp
+      if (snapshot.empty && digitsOnly.length >= 8) {
+        q = query(
+          collection(db, "invoices"),
+          where("customerWhatsapp", ">=", digitsOnly.slice(-9)),
+          orderBy("customerWhatsapp"),
+          orderBy("createdAt", "desc")
+        );
+        snapshot = await getDocs(q);
+      }
+
+      if (!snapshot.empty) {
+        const invoice = snapshot.docs[0].data();
+        let subscription = null;
+        if (invoice.subscriptionId) {
+          const subSnap = await getDoc(doc(db, "subscriptions", invoice.subscriptionId));
+          if (subSnap.exists()) subscription = subSnap.data();
+        }
+        return { invoice, subscription };
+      }
+    } catch (err) {
+      console.warn("Erro ao buscar pedido por contacto no Firestore:", err);
+    }
+  }
+
+  // Modo Demonstração
+  const demoInvoices = getMockData("megason_demo_invoices");
+  const invoice = demoInvoices.find(inv => {
+    const emailMatch = inv.customerEmail && inv.customerEmail.toLowerCase() === cleanContact;
+    const phoneMatch = inv.customerWhatsapp && inv.customerWhatsapp.replace(/\D/g, "").includes(digitsOnly.slice(-8));
+    return emailMatch || phoneMatch;
+  });
+
+  if (invoice) {
+    const demoSubs = getMockData("megason_demo_subscriptions");
+    const subscription = demoSubs.find(s => s.id === invoice.subscriptionId) || null;
+    return { invoice, subscription };
+  }
+
+  return null;
+}
+
+/**
+ * Criação Administrativa de Cliente com Atribuição Direta de Plano/Pacote
+ * Permite ao Administrador cadastrar manualmente um utilizador e liberar acesso imediato
+ * @param {object} params
+ * @returns {Promise<object>} Retorna { user, subscription, invoice }
+ */
+export async function adminCreateCustomerWithSubscription({
+  fullName,
+  email,
+  password,
+  whatsappNumber,
+  province,
+  district = "",
+  neighborhood = "",
+  planId,
+  folderName,
+  accessCredentials,
+  paymentMethod = "M-Pesa",
+  markAsPaid = true,
+  adminNotes = "",
+  adminUid = "admin"
+}) {
+  if (!fullName || fullName.trim().length === 0) throw new Error("Nome do cliente é obrigatório.");
+  if (!email || email.trim().length === 0) throw new Error("Email é obrigatório.");
+  if (!password || password.length < 6) throw new Error("A senha inicial deve ter no mínimo 6 caracteres.");
+  if (!whatsappNumber || whatsappNumber.trim().length === 0) throw new Error("WhatsApp é obrigatório.");
+
+  const plan = getPlanById(planId);
+  if (!plan) throw new Error("Plano selecionado não é válido.");
+
+  const now = new Date();
+  const startDate = now.toISOString();
+  const endDate = new Date(now.getTime() + plan.durationDays * 24 * 60 * 60 * 1000).toISOString();
+  const targetFolder = folderName ? folderName.trim() : `MEGASON - ${fullName.split(" ")[0]}`;
+  const targetCreds = accessCredentials ? accessCredentials.trim() : "Instruções de acesso fornecidas pela administração.";
+
+  let userId = "usr_" + Date.now();
+
+  if (isFirebaseConfigured() && db) {
+    // 1. Cria utilizador no Auth de forma isolada se possível ou gera ID de cliente
+    try {
+      const userRef = doc(collection(db, "users"));
+      userId = userRef.id;
+
+      const profileData = {
+        uid: userId,
+        fullName: fullName.trim(),
+        email: email.trim().toLowerCase(),
+        whatsappNumber: whatsappNumber.trim(),
+        province: province || "Maputo Cidade",
+        district: district.trim(),
+        neighborhood: neighborhood.trim(),
+        username: email.split("@")[0].toLowerCase(),
+        role: "customer",
+        isHumanVerified: true,
+        createdByAdmin: true,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      };
+
+      await setDoc(userRef, profileData);
+
+      // 2. Cria subscrição
+      const subRef = doc(collection(db, "subscriptions"));
+      const invRef = doc(collection(db, "invoices"));
+
+      const subData = {
+        id: subRef.id,
+        userId,
+        customerName: fullName.trim(),
+        customerEmail: email.trim().toLowerCase(),
+        customerWhatsapp: whatsappNumber.trim(),
+        planId: plan.id,
+        planName: plan.name,
+        price: plan.price,
+        currency: "MZN",
+        durationDays: plan.durationDays,
+        status: markAsPaid ? "active" : "pending",
+        folderName: targetFolder,
+        accessCredentials: targetCreds,
+        startDate: markAsPaid ? startDate : null,
+        endDate: markAsPaid ? endDate : null,
+        latestInvoiceId: invRef.id,
+        approvedBy: markAsPaid ? adminUid : null,
+        approvedAt: markAsPaid ? serverTimestamp() : null,
+        adminNotes: adminNotes ? adminNotes.trim() : "Criado manualmente pelo Administrador",
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      };
+
+      // 3. Cria fatura
+      const invData = {
+        id: invRef.id,
+        subscriptionId: subRef.id,
+        userId,
+        customerName: fullName.trim(),
+        customerEmail: email.trim().toLowerCase(),
+        customerWhatsapp: whatsappNumber.trim(),
+        amount: plan.price,
+        currency: "MZN",
+        planId: plan.id,
+        planName: plan.name,
+        durationDays: plan.durationDays,
+        status: markAsPaid ? "paid" : "pending",
+        proofText: `[Registo Administrativo] Venda direta / Atribuição manual pelo Administrador (${paymentMethod}).`,
+        paymentMethod: paymentMethod,
+        confirmedBy: markAsPaid ? adminUid : null,
+        paidAt: markAsPaid ? serverTimestamp() : null,
+        adminNotes: adminNotes ? adminNotes.trim() : null,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      };
+
+      await setDoc(subRef, subData);
+      await setDoc(invRef, invData);
+
+      return {
+        user: { ...profileData, id: userId },
+        subscription: subData,
+        invoice: invData
+      };
+    } catch (err) {
+      console.error("Falha ao criar cliente no Firestore:", err);
+      throw err;
+    }
+  }
+
+  // Modo Demonstração
+  const demoProfile = {
+    uid: userId,
+    fullName: fullName.trim(),
+    email: email.trim().toLowerCase(),
+    whatsappNumber: whatsappNumber.trim(),
+    province: province || "Maputo Cidade",
+    district: district.trim(),
+    neighborhood: neighborhood.trim(),
+    username: email.split("@")[0].toLowerCase(),
+    role: "customer",
+    isHumanVerified: true,
+    createdByAdmin: true,
+    createdAt: now.toISOString(),
+    isMock: true
+  };
+
+  const demoSubId = "sub_adm_" + Date.now();
+  const demoInvId = "inv_adm_" + Date.now();
+
+  const demoSub = {
+    id: demoSubId,
+    userId,
+    customerName: fullName.trim(),
+    customerEmail: email.trim().toLowerCase(),
+    customerWhatsapp: whatsappNumber.trim(),
+    planId: plan.id,
+    planName: plan.name,
+    price: plan.price,
+    currency: "MZN",
+    durationDays: plan.durationDays,
+    status: markAsPaid ? "active" : "pending",
+    folderName: targetFolder,
+    accessCredentials: targetCreds,
+    startDate: markAsPaid ? startDate : null,
+    endDate: markAsPaid ? endDate : null,
+    latestInvoiceId: demoInvId,
+    approvedBy: markAsPaid ? adminUid : null,
+    approvedAt: markAsPaid ? now.toISOString() : null,
+    adminNotes: adminNotes ? adminNotes.trim() : "Criado manualmente pelo Administrador",
+    createdAt: now.toISOString(),
+    isMock: true
+  };
+
+  const demoInv = {
+    id: demoInvId,
+    subscriptionId: demoSubId,
+    userId,
+    customerName: fullName.trim(),
+    customerEmail: email.trim().toLowerCase(),
+    customerWhatsapp: whatsappNumber.trim(),
+    amount: plan.price,
+    currency: "MZN",
+    planId: plan.id,
+    planName: plan.name,
+    durationDays: plan.durationDays,
+    status: markAsPaid ? "paid" : "pending",
+    proofText: `[Registo Administrativo] Venda direta / Atribuição manual pelo Administrador (${paymentMethod}).`,
+    paymentMethod: paymentMethod,
+    confirmedBy: markAsPaid ? adminUid : null,
+    paidAt: markAsPaid ? now.toISOString() : null,
+    adminNotes: adminNotes ? adminNotes.trim() : null,
+    createdAt: now.toISOString(),
+    isMock: true
+  };
+
+  saveMockData("megason_demo_invoices", demoInv);
+  saveMockData("megason_demo_subscriptions", demoSub);
+
+  return {
+    user: demoProfile,
+    subscription: demoSub,
+    invoice: demoInv
+  };
+}
+
 export async function getSubscriptionById(subscriptionId) {
   if (!subscriptionId) return null;
 

@@ -783,94 +783,78 @@
             </button>
           </form>
 
-          <div style="text-align: center; padding-top: var(--space-4); border-top: 1px solid var(--color-border-subtle);">
-            <p style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin-bottom: var(--space-2);">
+          <div style="text-align: center; padding-top: var(--space-4); border-top: 1px solid var(--color-border-subtle); display: flex; flex-direction: column; gap: var(--space-2);">
+            <p style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin: 0;">
               Ainda não tem conta na MEGASON?
             </p>
-            <button type="button" class="btn btn-outline btn-sm btn-block" id="btn-toggle-to-register">
-              Criar Nova Conta • Perfil Moçambique
+            <p style="font-size: 11px; color: var(--color-text-muted); margin: 0;">
+              A criação de conta é feita exclusivamente ao escolher um plano e enviar o comprovativo.
+            </p>
+            <a href="#planos" class="btn btn-primary btn-sm btn-block" id="btn-modal-choose-plan" style="margin-top: 4px;">
+              Escolher Plano e Iniciar Subscrição
+            </a>
+            <button type="button" class="btn btn-ghost btn-sm" id="btn-toggle-to-match" style="font-size: 11px; color: var(--color-primary); margin-top: 2px;">
+              Já enviou o comprovativo antes? Concluir ativação de conta
             </button>
           </div>
         </div>
 
-        <!-- Visualização: Registo com Perfil Moçambique -->
-        <div id="auth-view-register" style="display: none;">
-          <form id="form-register">
-            <div class="form-group">
-              <label for="reg-fullname" class="form-label">Nome Completo <span class="required">*</span></label>
-              <input type="text" id="reg-fullname" class="form-input" placeholder="Ex: Francisco Manuel" required autocomplete="name">
-            </div>
+        <!-- Visualização: Ativação de Conta por Comprovativo Existente (Match) -->
+        <div id="auth-view-match" style="display: none;">
+          <div style="background-color: var(--color-primary-subtle); border: 1px solid var(--color-primary-border); border-radius: var(--radius-md); padding: var(--space-3); margin-bottom: var(--space-4); font-size: var(--font-size-xs); color: var(--color-text-primary);">
+            Insira o seu <strong>WhatsApp</strong> ou <strong>Email</strong> utilizado na transferência. Se o seu pedido for localizado no sistema, poderá definir a sua senha e concluir a criação da conta.
+          </div>
 
-            <div class="form-group">
-              <label for="reg-email" class="form-label">Email Oficial <span class="required">*</span></label>
-              <input type="email" id="reg-email" class="form-input" placeholder="seu-email@exemplo.com" required autocomplete="email">
-            </div>
-
-            <div class="form-group">
-              <label for="reg-password" class="form-label">Senha de Acesso <span class="required">*</span></label>
-              <input type="password" id="reg-password" class="form-input" placeholder="Mínimo 6 caracteres" required minlength="6" autocomplete="new-password">
-            </div>
-
-            <div class="form-group">
-              <label for="reg-whatsapp" class="form-label">Número de WhatsApp (Moçambique) <span class="required">*</span></label>
-              <input type="tel" id="reg-whatsapp" class="form-input" placeholder="Ex: 841234567 ou 861234567" required autocomplete="tel">
-              <span class="form-help">Vodacom (84/85), Movitel (86/87) ou Tmcel (82/83).</span>
-            </div>
-
-            <div class="form-group">
-              <label for="reg-province" class="form-label">Província <span class="required">*</span></label>
-              <select id="reg-province" class="form-select" required>
-                <option value="" disabled selected>Selecione a sua província...</option>
-                <option value="Maputo Cidade">Maputo Cidade</option>
-                <option value="Maputo Província">Maputo Província</option>
-                <option value="Gaza">Gaza</option>
-                <option value="Inhambane">Inhambane</option>
-                <option value="Sofala">Sofala</option>
-                <option value="Manica">Manica</option>
-                <option value="Tete">Tete</option>
-                <option value="Zambézia">Zambézia</option>
-                <option value="Nampula">Nampula</option>
-                <option value="Cabo Delgado">Cabo Delgado</option>
-                <option value="Niassa">Niassa</option>
-              </select>
-            </div>
-
-            <div class="form-row-2">
+          <!-- Passo 1: Busca do Pedido -->
+          <div id="match-step-search">
+            <form id="form-match-search">
               <div class="form-group">
-                <label for="reg-district" class="form-label">Distrito</label>
-                <input type="text" id="reg-district" class="form-input" placeholder="Ex: KaMpfumo">
+                <label for="match-contact-input" class="form-label">WhatsApp ou Email do Comprovativo <span class="required">*</span></label>
+                <input type="text" id="match-contact-input" class="form-input" placeholder="Ex: 841234567 ou email@exemplo.com" required>
+              </div>
+
+              <button type="submit" class="btn btn-primary btn-block" id="btn-submit-match-search" style="margin-top: var(--space-2);">
+                Verificar Comprovativo
+              </button>
+            </form>
+          </div>
+
+          <!-- Passo 2: Resultado Positivo (Match) e Definição de Senha -->
+          <div id="match-step-complete" style="display: none;">
+            <div style="background-color: var(--color-success-bg); border: 1px solid var(--color-primary-border); border-radius: var(--radius-md); padding: var(--space-3); margin-bottom: var(--space-4);">
+              <div style="font-size: var(--font-size-xs); color: var(--color-success-text); font-weight: var(--font-weight-bold); margin-bottom: 2px;">
+                Comprovativo Localizado com Sucesso!
+              </div>
+              <div id="match-order-summary" style="font-size: var(--font-size-xs); color: var(--color-text-primary);"></div>
+            </div>
+
+            <form id="form-match-register">
+              <input type="hidden" id="match-full-name">
+              <input type="hidden" id="match-email">
+              <input type="hidden" id="match-whatsapp">
+              <input type="hidden" id="match-province">
+
+              <div class="form-group">
+                <label for="match-password" class="form-label">Defina a sua Senha de Acesso <span class="required">*</span></label>
+                <input type="password" id="match-password" class="form-input" placeholder="Mínimo 6 caracteres" required minlength="6" autocomplete="new-password">
               </div>
 
               <div class="form-group">
-                <label for="reg-neighborhood" class="form-label">Bairro</label>
-                <input type="text" id="reg-neighborhood" class="form-input" placeholder="Ex: Polana Cimento">
+                <label class="form-checkbox-label" style="margin-top: var(--space-2);">
+                  <input type="checkbox" id="match-is-human" class="form-checkbox" required>
+                  <span>Confirmo que sou humano e aceito os termos da MEGASON</span>
+                </label>
               </div>
-            </div>
 
-            <div class="form-group">
-              <label for="reg-username" class="form-label">Nome de Utilizador</label>
-              <input type="text" id="reg-username" class="form-input" placeholder="Ex: francisco.ai (opcional)">
-            </div>
+              <button type="submit" class="btn btn-primary btn-block" id="btn-submit-match-register" style="margin-top: var(--space-2);">
+                Ativar Minha Conta & Aceder
+              </button>
+            </form>
+          </div>
 
-            <!-- Checkbox Anti-Bot Obrigatória -->
-            <div class="form-group">
-              <label class="form-checkbox-label" style="margin-top: var(--space-2);">
-                <input type="checkbox" id="reg-is-human" class="form-checkbox" required>
-                <span>Confirmo que sou humano e aceito os termos da MEGASON</span>
-              </label>
-            </div>
-
-            <button type="submit" class="btn btn-primary btn-block" id="btn-submit-register" style="margin-top: var(--space-3); margin-bottom: var(--space-3);">
-              Criar Minha Conta
-            </button>
-          </form>
-
-          <div style="text-align: center; padding-top: var(--space-4); border-top: 1px solid var(--color-border-subtle);">
-            <p style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin-bottom: var(--space-2);">
-              Já possui uma conta ativa?
-            </p>
-            <button type="button" class="btn btn-secondary btn-sm btn-block" id="btn-toggle-to-login">
-              Entrar com Email e Senha
+          <div style="text-align: center; margin-top: var(--space-4); border-top: 1px solid var(--color-border-subtle); padding-top: var(--space-3);">
+            <button type="button" class="btn btn-ghost btn-sm" id="btn-match-back-to-login">
+              ← Voltar ao Login
             </button>
           </div>
         </div>

@@ -43,19 +43,39 @@
 - **Decisão:** O cadastro de utilizadores exige campos contextuais de Moçambique: as 11 províncias canónicas em select, validação de números de WhatsApp com operadoras nacionais (Vodacom 84/85, Movitel 86/87, Tmcel 82/83) e verificação anti-bot explícita. O papel `role: "customer"` é forçado na criação de qualquer conta pelo cliente; a promoção para `admin` só pode ser realizada diretamente na consola do Cloud Firestore ou por outro administrador autenticado via regras de segurança.
 - **Justificação:** Previne fraudes, garante que os acessos ao ChatGPT Plus sejam entregues no canal móvel correto (WhatsApp) e impede ataques de auto-elevação de privilégios.
 
+### ADR 008: Restrição de Criação de Contas ao Funil de Comprovativo e Criação Administrativa
+- **Decisão:** O utilizador final não pode criar contas avulsas livremente na aplicação sem selecionar um plano e anexar o comprovativo SMS de pagamento. O modal de autenticação pública disponibiliza apenas Login e Recuperação de Senha, além de uma consulta de correspondência (*match*) por WhatsApp ou Email para permitir que clientes que já efetuaram uma transferência prévia finalizem a sua senha. Adicionalmente, o Administrador passa a ter a faculdade exclusiva de cadastrar novos clientes manualmente pelo Painel Administrativo, atribuindo planos com liberação imediata de pastas e credenciais.
+- **Justificação:** Elimina cadastros ociosos e spam de contas sem intenção de compra, blinda o funil de conversão transacional e confere à equipa da MEGASON a flexibilidade operacional de registar clientes atendidos presencialmente ou por canais diretos (WhatsApp).
+
 ---
 
 ## 3. Mapeamento de Ferramentas, Agentes e Skills do Antigravity
 
-### Skills Relevantes Identificadas no Ambiente:
-- `architect-review`: Para validação contínua da coesão arquitetural e simplicidade.
-- `security-audit` / `sast-scanning`: Para auditoria de regras de segurança no Firestore e revisão de formulários.
-- `clean-code`: Para garantir consistência semântica e clareza no código vanilla.
-- `frontend-design`: Para implementação fiel do padrão visual OpenAI/ChatGPT em CSS limpo.
+Em alinhamento com a diretriz de orquestração simultânea (`/agent-orchestrator` e `agent-squad`), o projeto opera sob coordenação deliberada de agentes especializados e skills dedicadas a cada dimensão do MVP:
 
-### Limitações Técnicas Detectadas:
-1. **Restrição de Memória do Host Local:** O ambiente de execução do terminal apresentou limitação temporária para alocação de novos processos via `fork/exec`. Todas as operações de inspeção, escrita e validação estrutural são coordenadas diretamente via ferramentas nativas de arquivos para garantir confiabilidade.
-2. **Ambiente Estático Puro:** Nenhuma lógica de validação privilegiada pode residir no cliente sem ser garantida e travada pelas regras de segurança do Firestore (`firestore.rules`).
+### 3.1. Esquadrão Especializado de Agentes (The Squad):
+| Agente | Papel | Fase de Atuação | Responsabilidade no MVP MEGASON |
+| :--- | :--- | :--- | :--- |
+| **Rex** | **Analista** | Requisitos & Negócio | Mapeamento das regras de Moçambique (11 províncias, M-Pesa, E-Mola, Absa), plano 30/60/90/120d e fatura interna de cobrança. |
+| **Alex** | **Estrategista** | Planeamento | Estruturação do funil de conversão (Passo 1 ao 3), restrição de cadastro ao comprovativo e roteiro por fases. |
+| **Aria** | **Arquiteta** | Arquitetura | Modelo de dados Cloud Firestore (`users`, `subscriptions`, `invoices`), isolamento RBAC e regras de segurança sem backend Node/Python. |
+| **Mason** | **Construtor** | Implementação | Frontend Vanilla JS modular (ES Modules), CSS3 puro (tokens OpenAI/ChatGPT) e componentes de interface sem frameworks pesados. |
+| **Luna** | **Revisora** | Code Review | Auditoria estrita de Clean Code, eliminação de código órfão, ausência de dependências npm/CDN desnecessárias e integridade de tags. |
+| **Quinn** | **QA Tester** | Testes & Segurança | Auditoria contra injeção e adulteração de valores, validação de fluxo de SMS em texto e testes de guarda de rotas administrativas. |
+| **Max** | **Otimizador** | UX & Responsividade | **Guardião da Responsividade Mobile-First:** Touch targets mínimos de 44px, grids fluidos (`form-grid-2`), adaptabilidade em telas de 320px–480px e zero overflow horizontal. |
+| **Dep** | **DevOps** | Entrega & Publicação | Configuração do GitHub Pages estático, domínio personalizado `ai.admin-megason.com` (CNAME) e integridade de deploy. |
+
+### 3.2. Skills Ativas e Validadas via `agent-orchestrator`:
+- **`agent-orchestrator`**: Meta-skill central de varredura de capacidades, registry management e coordenação de fluxo de dados.
+- **`mobile-design`**: Filosofia Touch-First, Battery-Conscious e Platform-Respectful para garantir que o sistema não assuma padrões de desktop em dispositivos móveis.
+- **`ux-audit`**: Verificação das heurísticas de usabilidade, prevenção de erros e clareza no envio de comprovativos.
+- **`ui-a11y`**: Acessibilidade visual (contraste light mode, foco de inputs e rotulagem acessível de formulários).
+- **`security-audit`**: Auditoria do modelo de ameaças no Firestore para garantir que regras de autorização não dependam apenas do navegador.
+- **`clean-code`**: Código autodocumentado, nomes semânticos em inglês e comentários explicativos objetivos em PT-BR.
+
+### 3.3. Limitações Técnicas Detectadas e Mitigadas:
+1. **Restrição de Memória do Host Local:** O ambiente de execução do terminal WSL2 apresentou limitação de fork. Mitigada através do isolamento de storage em `/tmp/orchestrator_data` e execução direta para preservar a estabilidade da IDE.
+2. **Ambiente Estático Puro:** Nenhuma operação privilegiada confia no cliente; toda regra é garantida e travada pelas regras de segurança do Firestore (`firestore.rules`).
 
 ---
 

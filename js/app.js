@@ -24,7 +24,8 @@ import {
 import {
   createSubscriptionOrder,
   getUserSubscriptions,
-  getUserInvoices
+  getUserInvoices,
+  findOrderByContact
 } from "./services/subscriptions.js";
 
 // Estado global de autenticação em memória
@@ -447,37 +448,45 @@ function setupAuthModal() {
   const alertContainer = document.getElementById("auth-alert");
 
   const viewLogin = document.getElementById("auth-view-login");
-  const viewRegister = document.getElementById("auth-view-register");
+  const viewMatch = document.getElementById("auth-view-match");
   const viewReset = document.getElementById("auth-view-reset");
 
   const modalTitle = document.getElementById("modal-auth-title");
   const modalSubtitle = document.getElementById("modal-auth-subtitle");
 
   const formLogin = document.getElementById("form-login");
-  const formRegister = document.getElementById("form-register");
   const formReset = document.getElementById("form-reset-password");
   const btnGoogle = document.getElementById("btn-google-login");
 
-  const btnToggleToRegister = document.getElementById("btn-toggle-to-register");
-  const btnToggleToLogin = document.getElementById("btn-toggle-to-login");
+  const btnModalChoosePlan = document.getElementById("btn-modal-choose-plan");
+  const btnToggleToMatch = document.getElementById("btn-toggle-to-match");
+  const btnMatchBackToLogin = document.getElementById("btn-match-back-to-login");
   const linkToReset = document.getElementById("link-to-reset");
   const btnResetBackToLogin = document.getElementById("btn-reset-back-to-login");
+
+  const formMatchSearch = document.getElementById("form-match-search");
+  const formMatchRegister = document.getElementById("form-match-register");
+  const matchStepSearch = document.getElementById("match-step-search");
+  const matchStepComplete = document.getElementById("match-step-complete");
+  const matchOrderSummary = document.getElementById("match-order-summary");
 
   // Alterna a visualização ativa dentro do modal
   function showView(view) {
     clearAlert();
     if (viewLogin) viewLogin.style.display = view === "login" ? "block" : "none";
-    if (viewRegister) viewRegister.style.display = view === "register" ? "block" : "none";
+    if (viewMatch) viewMatch.style.display = view === "match" ? "block" : "none";
     if (viewReset) viewReset.style.display = view === "reset" ? "block" : "none";
 
     if (view === "login") {
       if (modalTitle) modalTitle.textContent = "Acesse a sua Conta MEGASON";
       if (modalSubtitle) modalSubtitle.textContent = "Acesso ao ChatGPT Plus";
       document.getElementById("login-email")?.focus();
-    } else if (view === "register") {
-      if (modalTitle) modalTitle.textContent = "Criar Conta • Perfil Moçambique";
-      if (modalSubtitle) modalSubtitle.textContent = "Acesso com pasta exclusiva no ChatGPT Plus";
-      document.getElementById("reg-fullname")?.focus();
+    } else if (view === "match") {
+      if (modalTitle) modalTitle.textContent = "Concluir Ativação de Conta";
+      if (modalSubtitle) modalSubtitle.textContent = "Vinculação ao seu comprovativo de pagamento";
+      if (matchStepSearch) matchStepSearch.style.display = "block";
+      if (matchStepComplete) matchStepComplete.style.display = "none";
+      document.getElementById("match-contact-input")?.focus();
     } else if (view === "reset") {
       if (modalTitle) modalTitle.textContent = "Recuperar Senha de Acesso";
       if (modalSubtitle) modalSubtitle.textContent = "Receba um link de redefinição no seu email";
@@ -532,11 +541,126 @@ function setupAuthModal() {
     }
   });
 
+  // Botão para ir aos planos e fechar modal
+  if (btnModalChoosePlan) {
+    btnModalChoosePlan.addEventListener("click", (e) => {
+      closeAuth();
+    });
+  }
+
   // Alternâncias de view
-  if (btnToggleToRegister) btnToggleToRegister.addEventListener("click", () => showView("register"));
-  if (btnToggleToLogin) btnToggleToLogin.addEventListener("click", () => showView("login"));
+  if (btnToggleToMatch) btnToggleToMatch.addEventListener("click", () => showView("match"));
+  if (btnMatchBackToLogin) btnMatchBackToLogin.addEventListener("click", () => showView("login"));
   if (linkToReset) linkToReset.addEventListener("click", (e) => { e.preventDefault(); showView("reset"); });
   if (btnResetBackToLogin) btnResetBackToLogin.addEventListener("click", () => showView("login"));
+
+  // Busca de comprovativo para ativação de conta (Match)
+  if (formMatchSearch) {
+    formMatchSearch.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      clearAlert();
+      const input = document.getElementById("match-contact-input");
+      const submitBtn = document.getElementById("btn-submit-match-search");
+      const contactVal = input ? input.value.trim() : "";
+
+      if (!contactVal) {
+        showAlert("Insira o seu número de WhatsApp ou Email.");
+        return;
+      }
+
+      try {
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.textContent = "A consultar...";
+        }
+
+        const matchResult = await findOrderByContact(contactVal);
+        if (!matchResult || !matchResult.invoice) {
+          showAlert("Nenhum pedido ou comprovativo encontrado para este contacto. Para criar a sua conta, selecione um dos planos abaixo e submeta o comprovativo da transferência.");
+          return;
+        }
+
+        const inv = matchResult.invoice;
+        const sub = matchResult.subscription;
+
+        // Preenche campos ocultos
+        document.getElementById("match-full-name").value = inv.customerName || "";
+        document.getElementById("match-email").value = inv.customerEmail || "";
+        document.getElementById("match-whatsapp").value = inv.customerWhatsapp || "";
+        document.getElementById("match-province").value = (sub && sub.province) || "Maputo Cidade";
+
+        if (matchOrderSummary) {
+          matchOrderSummary.innerHTML = `
+            <strong>Cliente:</strong> ${inv.customerName || "Cliente"}<br>
+            <strong>Plano:</strong> ${inv.planName || "ChatGPT Plus"} (${inv.amount || 0} MT)<br>
+            <strong>Estado:</strong> ${inv.status === "paid" ? "Pagamento Confirmado" : "Aguardando Verificação de SMS"}
+          `;
+        }
+
+        if (matchStepSearch) matchStepSearch.style.display = "none";
+        if (matchStepComplete) matchStepComplete.style.display = "block";
+        document.getElementById("match-password")?.focus();
+      } catch (err) {
+        showAlert(err.message || "Erro ao consultar comprovativo.");
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Verificar Comprovativo";
+        }
+      }
+    });
+  }
+
+  // Finalização da Conta após Match do Comprovativo
+  if (formMatchRegister) {
+    formMatchRegister.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      clearAlert();
+      const submitBtn = document.getElementById("btn-submit-match-register");
+      const fullName = document.getElementById("match-full-name")?.value.trim();
+      const email = document.getElementById("match-email")?.value.trim();
+      const whatsappNumber = document.getElementById("match-whatsapp")?.value.trim();
+      const province = document.getElementById("match-province")?.value || "Maputo Cidade";
+      const password = document.getElementById("match-password")?.value;
+      const isHuman = document.getElementById("match-is-human")?.checked;
+
+      if (!isHuman) {
+        showAlert("Por favor, marque a caixa confirmando que é humano.");
+        return;
+      }
+
+      if (!password || password.length < 6) {
+        showAlert("A senha deve conter no mínimo 6 caracteres.");
+        return;
+      }
+
+      try {
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.textContent = "A ativar conta...";
+        }
+
+        await registerUser({
+          fullName,
+          email,
+          password,
+          whatsappNumber,
+          province,
+          isHumanVerified: true
+        });
+
+        closeAuth();
+        alert(`Conta ativada com sucesso para ${fullName}! O seu acesso e histórico de subscrições já estão disponíveis.`);
+      } catch (err) {
+        showAlert(err.message || "Falha ao ativar a conta. Caso já tenha criado a conta anteriormente, faça login direto com a sua senha.");
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Ativar Minha Conta & Aceder";
+        }
+      }
+    });
+  }
 
   // Submissão do Login
   if (formLogin) {
@@ -566,58 +690,6 @@ function setupAuthModal() {
         if (submitBtn) {
           submitBtn.disabled = false;
           submitBtn.textContent = "Entrar na Minha Conta";
-        }
-      }
-    });
-  }
-
-  // Submissão do Registo (com campos moçambicanos e anti-bot)
-  if (formRegister) {
-    formRegister.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      clearAlert();
-      const submitBtn = document.getElementById("btn-submit-register");
-
-      const fullName = document.getElementById("reg-fullname")?.value.trim();
-      const email = document.getElementById("reg-email")?.value.trim();
-      const password = document.getElementById("reg-password")?.value;
-      const whatsappNumber = document.getElementById("reg-whatsapp")?.value.trim();
-      const province = document.getElementById("reg-province")?.value;
-      const district = document.getElementById("reg-district")?.value.trim();
-      const neighborhood = document.getElementById("reg-neighborhood")?.value.trim();
-      const username = document.getElementById("reg-username")?.value.trim();
-      const isHumanVerified = document.getElementById("reg-is-human")?.checked;
-
-      if (!isHumanVerified) {
-        showAlert("Por favor, marque a caixa confirmando que é humano.");
-        return;
-      }
-
-      try {
-        if (submitBtn) {
-          submitBtn.disabled = true;
-          submitBtn.textContent = "A criar conta...";
-        }
-        await registerUser({
-          fullName,
-          email,
-          password,
-          whatsappNumber,
-          province,
-          district,
-          neighborhood,
-          username,
-          isHumanVerified
-        });
-        closeAuth();
-        formRegister.reset();
-        alert("Conta criada com sucesso na MEGASON! O seu perfil moçambicano foi registrado.");
-      } catch (err) {
-        showAlert(err.message || "Erro ao criar conta. Verifique os dados inseridos.");
-      } finally {
-        if (submitBtn) {
-          submitBtn.disabled = false;
-          submitBtn.textContent = "Criar Minha Conta";
         }
       }
     });
