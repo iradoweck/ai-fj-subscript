@@ -953,36 +953,22 @@ function updateHeaderAuth(state) {
       </button>
     `;
   } else {
-    // Portal do Utilizador (PU): Limpa links de âncoras da landing e coloca o ID oficial do cliente
+    // Portal do Utilizador (PU): Oculta links públicos e exibe navegação limpa do cliente
     if (headerNav) {
-      headerNav.style.display = "flex";
-      headerNav.innerHTML = `
-        <span class="badge badge-active" style="font-family: monospace; font-size: 12px; font-weight: 700; padding: 4px 12px; display: inline-flex; align-items: center; gap: 6px; letter-spacing: 0.04em;">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-          ID: ${clientCode}
-        </span>
-      `;
+      headerNav.style.display = "none";
     }
 
     headerActions.innerHTML = `
-      <span style="font-size: var(--font-size-xs); font-weight: var(--font-weight-medium); color: var(--color-text-secondary);">
-        Olá, <strong>${firstName}</strong>
+      <span class="badge badge-active" style="font-family: monospace; font-size: 11px; font-weight: 700; padding: 3px 8px; letter-spacing: 0.04em;">
+        ${clientCode}
       </span>
-      <button type="button" class="btn btn-secondary btn-sm" id="btn-header-edit-profile" title="Atualizar dados de perfil e senha">
-        Meu Perfil
-      </button>
+      <span style="font-size: var(--font-size-xs); font-weight: var(--font-weight-medium); color: var(--color-text-secondary);">
+        ${firstName}
+      </span>
       <button type="button" class="btn btn-outline btn-sm" id="btn-header-logout" title="Terminar Sessão">
         Sair
       </button>
     `;
-
-    const editProfileBtn = document.getElementById("btn-header-edit-profile");
-    if (editProfileBtn) {
-      editProfileBtn.addEventListener("click", () => {
-        const modal = document.getElementById("edit-profile-modal");
-        if (modal) modal.style.display = "flex";
-      });
-    }
   }
 
   const logoutBtn = document.getElementById("btn-header-logout");
@@ -1407,7 +1393,7 @@ async function loadCustomerDashboardData(state) {
   }
 
   if (detailsEl) {
-    detailsEl.textContent = `ID: ${clientCode} • WhatsApp: ${profile.whatsappNumber || "--"} • Email: ${profile.email || state.user.email || "--"}`;
+    detailsEl.textContent = `WhatsApp: ${profile.whatsappNumber || "--"} • Email: ${profile.email || state.user.email || "--"}`;
   }
   if (provinceBadge) {
     provinceBadge.textContent = profile.province || "Moçambique";
