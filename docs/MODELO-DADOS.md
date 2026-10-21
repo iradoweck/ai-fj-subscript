@@ -97,7 +97,7 @@ Contém as configurações públicas da MEGASON acessíveis a visitantes e utili
 ```json
 {
   "businessName": "MEGASON",
-  "domain": "ai.admin-megason.com",
+  "domain": "ai.admin-megason.site",
   "paymentMethods": {
     "mpesa": { "title": "M-Pesa", "account": "842256366 – FRANCISCO" },
     "emola": { "title": "E-Mola", "account": "861557953 – FRANCISCO" },

@@ -2,7 +2,7 @@
 
 > **Empresa Titular do Serviço:** MEGASON  
 > **Desenvolvimento & Propriedade do Código:** Zedecks IT  
-> **Domínio de Produção:** `https://ai.admin-megason.com`  
+> **Domínio de Produção:** `https://ai.admin-megason.site`  
 > **Alojamento:** GitHub Pages (Site Estático)  
 > **Orçamento:** 8.500 MT (Âmbito Estrito de MVP)
 
@@ -40,7 +40,7 @@ Seguindo estritamente a filosofia de engenharia limpa e o teto orçamentário do
 - **Ícones e Ilustrações:** Vetores SVG puros inline (zero chamadas de rede para bibliotecas externas de ícones).
 - **Autenticação:** Firebase Authentication (Email/Senha e Google Identity).
 - **Banco de Dados:** Cloud Firestore com regras de segurança ativas no servidor (`firestore.rules`).
-- **Hospedagem:** GitHub Pages servindo ficheiros estáticos com CNAME apontado para `ai.admin-megason.com`.
+- **Hospedagem:** GitHub Pages servindo ficheiros estáticos com CNAME apontado para `ai.admin-megason.site`.
 - **Modo Demonstração Integrado:** Permite testar todo o fluxo da loja e do painel administrativo mesmo sem conexão ativa ao Firebase.
 
 ---
@@ -49,7 +49,7 @@ Seguindo estritamente a filosofia de engenharia limpa e o teto orçamentário do
 
 ```
 ai-fj-subscript/
-├── CNAME                         # Domínio personalizado (ai.admin-megason.com)
+├── CNAME                         # Domínio personalizado (ai.admin-megason.site)
 ├── index.html                    # Loja pública e landing page com checkout
 ├── admin.html                    # Painel administrativo protegido por RBAC
 ├── 404.html                      # Roteamento estático para GitHub Pages

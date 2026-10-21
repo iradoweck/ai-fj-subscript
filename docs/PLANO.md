@@ -4,7 +4,7 @@
 > **Sistema / Cliente:** MEGASON  
 > **Desenvolvedora & Propriedade do Código:** Zedecks IT  
 > **Orçamento:** 8.500 MT (Âmbito estrito)  
-> **Domínio de Produção:** `ai.admin-megason.com`  
+> **Domínio de Produção:** `ai.admin-megason.site`  
 > **Stack:** HTML5, CSS3, JavaScript Vanilla (ES Modules), Firebase Authentication, Cloud Firestore, GitHub Pages.
 
 ---
@@ -53,7 +53,7 @@ Aplicação web estática para a **MEGASON** apresentar e comercializar subscri�
 | **6** | **Painel Administrativo** | Consulta de subscritores, validação de comprovativo em texto, aprovação e entrega de senhas/pasta. | **Concluída** |
 | **7** | **Segurança e Testes Essenciais** | Regras definitivas do Firestore (RBAC estrito), testes de limites e integridade. | **Concluída** |
 | **8** | **Documentação Final** | Guias de configuração, manual de administração e relatórios operacionais. | **Concluída** |
-| **9** | **GitHub Pages e Entrega** | Configuração do domínio `ai.admin-megason.com` (CNAME), deploy e checklist final. | Pendente |
+| **9** | **GitHub Pages e Entrega** | Configuração do domínio `ai.admin-megason.site` (CNAME), deploy e checklist final. | **Concluída** |
 
 ---
 

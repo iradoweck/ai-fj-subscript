@@ -1,7 +1,7 @@
 # Guia de Publicação e Configuração de Infraestrutura — MEGASON
 
 > **Aplicação:** Subscrições ChatGPT Plus (GPT-6 Astra)  
-> **Domínio de Produção:** `https://ai.admin-megason.com`  
+> **Domínio de Produção:** `https://ai.admin-megason.site`  
 > **Alojamento:** GitHub Pages  
 > **Serviços Backend:** Firebase Authentication & Cloud Firestore  
 > **Responsável de DevOps:** Dep (DevOps / Entrega)
@@ -22,16 +22,16 @@ A aplicação foi desenvolvida como um site estático puro (Static Site), o que 
 ### 1.2. Configuração do Domínio Personalizado
 1. O ficheiro `CNAME` já está criado na raiz do repositório contendo exatamente:
    ```
-   ai.admin-megason.com
+   ai.admin-megason.site
    ```
-2. Na página de definições do GitHub Pages, confirme que o campo **Custom domain** apresenta `ai.admin-megason.com`.
+2. Na página de definições do GitHub Pages, confirme que o campo **Custom domain** apresenta `ai.admin-megason.site`.
 3. Marque a caixa de verificação **Enforce HTTPS** (o certificado SSL é emitido automaticamente pelo Let's Encrypt através do GitHub após a propagação dos registos de DNS).
 
 ---
 
 ## 2. Configuração de DNS (Zona de Domínio MEGASON)
 
-No painel do provedor de domínio onde o domínio `admin-megason.com` está registado (ex: Cloudflare, GoDaddy, Namecheap ou registrador local moçambicano), configure o seguinte registo:
+No painel do provedor de domínio onde o domínio `admin-megason.site` está registado (ex: Cloudflare, GoDaddy, Namecheap ou registrador local moçambicano), configure o seguinte registo:
 
 | Tipo | Nome / Host | Destino / Valor | TTL |
 | :---: | :---: | :---: | :---: |
@@ -53,7 +53,7 @@ No painel do provedor de domínio onde o domínio `admin-megason.com` está regi
    - **Email/Password:** Marque "Enable" no primeiro interruptor (Email/Password).
    - **Google (Opcional):** Marque "Enable", insira o email de suporte e guarde.
 3. Na aba **Settings** do Authentication → secção **Authorized domains**:
-   - Adicione o domínio personalizado: `ai.admin-megason.com`
+   - Adicione o domínio personalizado: `ai.admin-megason.site`
    - Certifique-se de que `localhost` também está presente para desenvolvimento.
 
 ### 3.3. Configuração do Cloud Firestore
@@ -92,13 +92,13 @@ Como o sistema impede a auto-promoção de utilizadores por regras de segurança
 2. Aceda à Consola do Firebase → **Firestore Database** → coleção `users`.
 3. Localize o documento correspondente ao UID do utilizador criado.
 4. Altere o campo `role` de `"customer"` para `"admin"`.
-5. Pronto! Esse utilizador já tem acesso irrestrito ao painel em `https://ai.admin-megason.com/admin.html`.
+5. Pronto! Esse utilizador já tem acesso irrestrito ao painel em `https://ai.admin-megason.site/admin.html`.
 
 ---
 
 ## 5. Checklist de Verificação Pré-Lançamento
 
-- [x] Arquivo `CNAME` configurado na raiz com `ai.admin-megason.com`.
+- [x] Arquivo `CNAME` configurado na raiz com `ai.admin-megason.site`.
 - [x] Regras de segurança `firestore.rules` aplicadas e testadas com Zero Trust.
 - [x] Testes automatizados executados (`python3 scripts/run_tests.py` - 13/13 aprovados).
 - [x] Light Mode consistente em todas as telas (sem botão de dark mode).

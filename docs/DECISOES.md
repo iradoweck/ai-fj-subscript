@@ -5,7 +5,7 @@
 - **Desenvolvedora & Titularidade do Código:** Zedecks IT.
 - **Orçamento:** 8.500 MT.
 - **Modelo:** Venda e partilha manual de acessos/pastas ChatGPT Plus para utilizadores finais da MEGASON.
-- **Ambiente de Produção:** GitHub Pages no domínio personalizado `ai.admin-megason.com`.
+- **Ambiente de Produção:** GitHub Pages no domínio personalizado `ai.admin-megason.site`.
 
 ---
 
@@ -63,7 +63,7 @@ Em alinhamento com a diretriz de orquestração simultânea (`/agent-orchestrato
 | **Luna** | **Revisora** | Code Review | Auditoria estrita de Clean Code, eliminação de código órfão, ausência de dependências npm/CDN desnecessárias e integridade de tags. |
 | **Quinn** | **QA Tester** | Testes & Segurança | Auditoria contra injeção e adulteração de valores, validação de fluxo de SMS em texto e testes de guarda de rotas administrativas. |
 | **Max** | **Otimizador** | UX & Responsividade | **Guardião da Responsividade Mobile-First:** Touch targets mínimos de 44px, grids fluidos (`form-grid-2`), adaptabilidade em telas de 320px–480px e zero overflow horizontal. |
-| **Dep** | **DevOps** | Entrega & Publicação | Configuração do GitHub Pages estático, domínio personalizado `ai.admin-megason.com` (CNAME) e integridade de deploy. |
+| **Dep** | **DevOps** | Entrega & Publicação | Configuração do GitHub Pages estático, domínio personalizado `ai.admin-megason.site` (CNAME) e integridade de deploy. |
 
 ### 3.2. Skills Ativas e Validadas via `agent-orchestrator`:
 - **`agent-orchestrator`**: Meta-skill central de varredura de capacidades, registry management e coordenação de fluxo de dados.

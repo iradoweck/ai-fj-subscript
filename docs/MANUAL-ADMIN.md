@@ -3,7 +3,7 @@
 > **Aplicação:** Subscrições ChatGPT Plus (GPT-6 Astra)  
 > **Empresa Titular:** MEGASON  
 > **Desenvolvido por:** Zedecks IT  
-> **Acesso Web:** `https://ai.admin-megason.com/admin.html` (ou local `admin.html`)
+> **Acesso Web:** `https://ai.admin-megason.site/admin.html` (ou local `admin.html`)
 
 ---
 

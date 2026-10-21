@@ -843,7 +843,7 @@ ${accessCredentials}
 
 🌐 *Painel do Cliente MEGASON:*
 Poderá consultar a sua subscrição e faturas no nosso site:
-• *Site:* https://ai.admin-megason.com
+• *Site:* https://ai.admin-megason.site
 • *Email:* ${email}
 • *Senha Temporária:* ${password}
 
