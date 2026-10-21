@@ -51,15 +51,31 @@
 
 ## 3. Mapeamento de Ferramentas, Agentes e Skills do Antigravity
 
-### Skills Relevantes Identificadas no Ambiente:
-- `architect-review`: Para validação contínua da coesão arquitetural e simplicidade.
-- `security-audit` / `sast-scanning`: Para auditoria de regras de segurança no Firestore e revisão de formulários.
-- `clean-code`: Para garantir consistência semântica e clareza no código vanilla.
-- `frontend-design`: Para implementação fiel do padrão visual OpenAI/ChatGPT em CSS limpo.
+Em alinhamento com a diretriz de orquestração simultânea (`/agent-orchestrator` e `agent-squad`), o projeto opera sob coordenação deliberada de agentes especializados e skills dedicadas a cada dimensão do MVP:
 
-### Limitações Técnicas Detectadas:
-1. **Restrição de Memória do Host Local:** O ambiente de execução do terminal apresentou limitação temporária para alocação de novos processos via `fork/exec`. Todas as operações de inspeção, escrita e validação estrutural são coordenadas diretamente via ferramentas nativas de arquivos para garantir confiabilidade.
-2. **Ambiente Estático Puro:** Nenhuma lógica de validação privilegiada pode residir no cliente sem ser garantida e travada pelas regras de segurança do Firestore (`firestore.rules`).
+### 3.1. Esquadrão Especializado de Agentes (The Squad):
+| Agente | Papel | Fase de Atuação | Responsabilidade no MVP MEGASON |
+| :--- | :--- | :--- | :--- |
+| **Rex** | **Analista** | Requisitos & Negócio | Mapeamento das regras de Moçambique (11 províncias, M-Pesa, E-Mola, Absa), plano 30/60/90/120d e fatura interna de cobrança. |
+| **Alex** | **Estrategista** | Planeamento | Estruturação do funil de conversão (Passo 1 ao 3), restrição de cadastro ao comprovativo e roteiro por fases. |
+| **Aria** | **Arquiteta** | Arquitetura | Modelo de dados Cloud Firestore (`users`, `subscriptions`, `invoices`), isolamento RBAC e regras de segurança sem backend Node/Python. |
+| **Mason** | **Construtor** | Implementação | Frontend Vanilla JS modular (ES Modules), CSS3 puro (tokens OpenAI/ChatGPT) e componentes de interface sem frameworks pesados. |
+| **Luna** | **Revisora** | Code Review | Auditoria estrita de Clean Code, eliminação de código órfão, ausência de dependências npm/CDN desnecessárias e integridade de tags. |
+| **Quinn** | **QA Tester** | Testes & Segurança | Auditoria contra injeção e adulteração de valores, validação de fluxo de SMS em texto e testes de guarda de rotas administrativas. |
+| **Max** | **Otimizador** | UX & Responsividade | **Guardião da Responsividade Mobile-First:** Touch targets mínimos de 44px, grids fluidos (`form-grid-2`), adaptabilidade em telas de 320px–480px e zero overflow horizontal. |
+| **Dep** | **DevOps** | Entrega & Publicação | Configuração do GitHub Pages estático, domínio personalizado `ai.admin-megason.com` (CNAME) e integridade de deploy. |
+
+### 3.2. Skills Ativas e Validadas via `agent-orchestrator`:
+- **`agent-orchestrator`**: Meta-skill central de varredura de capacidades, registry management e coordenação de fluxo de dados.
+- **`mobile-design`**: Filosofia Touch-First, Battery-Conscious e Platform-Respectful para garantir que o sistema não assuma padrões de desktop em dispositivos móveis.
+- **`ux-audit`**: Verificação das heurísticas de usabilidade, prevenção de erros e clareza no envio de comprovativos.
+- **`ui-a11y`**: Acessibilidade visual (contraste light mode, foco de inputs e rotulagem acessível de formulários).
+- **`security-audit`**: Auditoria do modelo de ameaças no Firestore para garantir que regras de autorização não dependam apenas do navegador.
+- **`clean-code`**: Código autodocumentado, nomes semânticos em inglês e comentários explicativos objetivos em PT-BR.
+
+### 3.3. Limitações Técnicas Detectadas e Mitigadas:
+1. **Restrição de Memória do Host Local:** O ambiente de execução do terminal WSL2 apresentou limitação de fork. Mitigada através do isolamento de storage em `/tmp/orchestrator_data` e execução direta para preservar a estabilidade da IDE.
+2. **Ambiente Estático Puro:** Nenhuma operação privilegiada confia no cliente; toda regra é garantida e travada pelas regras de segurança do Firestore (`firestore.rules`).
 
 ---
 
