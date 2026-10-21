@@ -48,12 +48,12 @@ service cloud.firestore {
       // 2. O Administrador pode criar qualquer perfil (incluindo clientes cadastrados manualmente)
       allow create: if (isOwner(userId) && 
         request.resource.data.role in ['customer', 'user'] &&
-        request.resource.data.status in ['active', null]) || isAdmin();
+        (!('status' in request.resource.data) || request.resource.data.status in ['active', null])) || isAdmin();
         
       // Actualização: utilizador não pode promover-se a admin nem alterar seu status
       allow update: if (isOwner(userId) && 
         request.resource.data.role == resource.data.role && 
-        request.resource.data.status == resource.data.status) || isAdmin();
+        (!('status' in request.resource.data) || request.resource.data.status == resource.data.status)) || isAdmin();
         
       allow delete: if isAdmin();
     }

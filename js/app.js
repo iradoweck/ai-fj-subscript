@@ -421,7 +421,14 @@ function setupModalEvents() {
         setCheckoutStep(3);
 
       } catch (err) {
-        alert(err.message || "Ocorreu um erro ao processar os seus dados. Verifique as informações inseridas.");
+        console.error("Erro no processamento da subscrição:", err);
+        let userMsg = err.message || "Ocorreu um erro ao processar os seus dados. Verifique as informações inseridas.";
+        if (err.code === "permission-denied" || (err.message && err.message.includes("insufficient permissions"))) {
+          userMsg = "Permissão recusada pelo Cloud Firestore. Por favor, publique o conteúdo do ficheiro firestore.rules na aba 'Rules' do Firebase Console para autorizar o registo de clientes e subscrições.";
+        } else if (err.code === "auth/email-already-in-use") {
+          userMsg = "Este endereço de email já possui uma conta na MEGASON. Clique em 'Já possui conta? Entre aqui' para aceder.";
+        }
+        alert(userMsg);
       } finally {
         if (submitBtn) {
           submitBtn.disabled = false;

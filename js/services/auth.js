@@ -116,6 +116,7 @@ export async function registerUser({
       neighborhood: neighborhood ? neighborhood.trim() : "",
       username: username ? username.trim().toLowerCase() : email.split("@")[0],
       role: "customer",
+      status: "active",
       isHumanVerified: true,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
