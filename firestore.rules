@@ -2,7 +2,7 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Funções Auxiliares de Segurança
+    // Funções Auxiliares de Segurança e RBAC
     function isAuthenticated() {
       return request.auth != null;
     }
@@ -15,6 +15,15 @@ service cloud.firestore {
       return isAuthenticated() && 
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Validação estrita de valores oficiais dos 4 planos da MEGASON em Meticais (MZN)
+    function isValidPlanPrice(price) {
+      return price in [300, 550, 800, 1000];
+    }
+
+    function isValidPlanDuration(days) {
+      return days in [30, 60, 90, 120];
     }
 
     // Configurações públicas: leitura para todos, escrita estrita para Admin
@@ -34,13 +43,14 @@ service cloud.firestore {
       // O próprio utilizador e o admin podem ler
       allow read: if isOwner(userId) || isAdmin();
       
-      // Criação de perfil: utilizador autenticado pode criar o seu documento
-      // Imposição estrita: role DEVE ser 'user' e status 'active'
-      allow create: if isOwner(userId) && 
-        request.resource.data.role == 'user' &&
-        request.resource.data.status == 'active';
+      // Criação de perfil: 
+      // 1. O próprio cliente pode criar com role 'customer' ou 'user'
+      // 2. O Administrador pode criar qualquer perfil (incluindo clientes cadastrados manualmente)
+      allow create: if (isOwner(userId) && 
+        request.resource.data.role in ['customer', 'user'] &&
+        request.resource.data.status in ['active', null]) || isAdmin();
         
-      // Actualização: utilizador não pode mudar o seu próprio papel ou status
+      // Actualização: utilizador não pode promover-se a admin nem alterar seu status
       allow update: if (isOwner(userId) && 
         request.resource.data.role == resource.data.role && 
         request.resource.data.status == resource.data.status) || isAdmin();
@@ -52,12 +62,16 @@ service cloud.firestore {
     match /subscriptions/{subscriptionId} {
       allow read: if (isAuthenticated() && resource.data.userId == request.auth.uid) || isAdmin();
       
-      // Utilizador pode criar pedido inicial de subscrição apenas com status 'pending'
-      allow create: if isAuthenticated() && 
+      // Criação de pedido de subscrição:
+      // Cliente: apenas com status 'pending' e preço/duração oficiais validados
+      // Admin: pode criar diretamente subscrições para clientes (ex: vendas assistidas)
+      allow create: if (isAuthenticated() && 
         request.resource.data.userId == request.auth.uid &&
-        request.resource.data.status == 'pending';
+        request.resource.data.status == 'pending' &&
+        isValidPlanPrice(request.resource.data.price) &&
+        isValidPlanDuration(request.resource.data.durationDays)) || isAdmin();
         
-      // Apenas o Administrador pode aprovar, suspender ou alterar credenciais de acesso
+      // Apenas o Administrador pode aprovar (status: 'active'), suspender ou alterar credenciais/pasta
       allow update, delete: if isAdmin();
     }
 
@@ -65,23 +79,28 @@ service cloud.firestore {
     match /invoices/{invoiceId} {
       allow read: if (isAuthenticated() && resource.data.userId == request.auth.uid) || isAdmin();
       
-      // Criação inicial da factura pelo checkout com status 'pending'
-      allow create: if isAuthenticated() && 
+      // Criação de fatura:
+      // Cliente: apenas status 'pending' e montante compatível com os 4 planos
+      // Admin: pode emitir faturas manuais
+      allow create: if (isAuthenticated() && 
         request.resource.data.userId == request.auth.uid &&
-        request.resource.data.status == 'pending';
+        request.resource.data.status == 'pending' &&
+        isValidPlanPrice(request.resource.data.amount) &&
+        isValidPlanDuration(request.resource.data.durationDays)) || isAdmin();
         
-      // O utilizador só pode actualizar a factura para enviar ou editar o proofText (comprovativo em texto)
-      // enquanto a factura estiver 'pending'. Não pode alterar status ou paidAt!
+      // O utilizador só pode actualizar a fatura para submeter o texto do comprovativo (proofText)
+      // enquanto a fatura estiver 'pending'. É expressamente proibido alterar status, montante ou paidAt!
       allow update: if (isAuthenticated() && 
         resource.data.userId == request.auth.uid && 
         resource.data.status == 'pending' &&
         request.resource.data.status == resource.data.status &&
-        request.resource.data.amount == resource.data.amount) || isAdmin();
+        request.resource.data.amount == resource.data.amount &&
+        request.resource.data.paidAt == resource.data.paidAt) || isAdmin();
         
       allow delete: if isAdmin();
     }
 
-    // Regra padrão de negação para qualquer caminho não previsto
+    // Regra padrão de negação (Zero Trust) para qualquer outro caminho não previsto
     match /{document=**} {
       allow read, write: if false;
     }
