@@ -29,11 +29,24 @@ import {
   SHARED_FEATURES
 } from "./services/plans.js";
 
+import {
+  db,
+  isFirebaseConfigured,
+  doc,
+  getDoc,
+  setDoc,
+  serverTimestamp
+} from "./services/firebase.js";
+
 // Estado da Aplicação Administrativa
 let currentAdmin = null;
 let allSubscriptions = [];
 let allInvoices = [];
 let allPlans = [];
+let systemSettings = {
+  adminEmail: "comercial@admin-megason.site",
+  adminWhatsapp: "842256366"
+};
 let activeTab = "subscriptions";
 let searchQuery = "";
 let statusFilter = "all";
@@ -62,9 +75,16 @@ const tabBadgePendingCount = document.getElementById("tab-badge-pending-count");
 const tabBtnSubscriptions = document.getElementById("tab-btn-subscriptions");
 const tabBtnInvoices = document.getElementById("tab-btn-invoices");
 const tabBtnPlans = document.getElementById("tab-btn-plans");
+const tabBtnSettings = document.getElementById("tab-btn-settings");
 const tabContentSubscriptions = document.getElementById("tab-content-subscriptions");
 const tabContentInvoices = document.getElementById("tab-content-invoices");
 const tabContentPlans = document.getElementById("tab-content-plans");
+const tabContentSettings = document.getElementById("tab-content-settings");
+
+// Elementos de Configurações
+const formAdminSettings = document.getElementById("form-admin-settings");
+const adminSettingEmail = document.getElementById("admin-setting-email");
+const adminSettingWhatsapp = document.getElementById("admin-setting-whatsapp");
 
 // Filtros
 const adminSearchInput = document.getElementById("admin-search-input");
@@ -218,6 +238,10 @@ function setupEventListeners() {
   tabBtnSubscriptions?.addEventListener("click", () => switchTab("subscriptions"));
   tabBtnInvoices?.addEventListener("click", () => switchTab("invoices"));
   tabBtnPlans?.addEventListener("click", () => switchTab("plans"));
+  tabBtnSettings?.addEventListener("click", () => switchTab("settings"));
+
+  // Gestão de Configurações
+  formAdminSettings?.addEventListener("submit", handleSaveSettings);
 
   // Gestão de Planos
   btnAdminOpenCreatePlan?.addEventListener("click", () => openCreatePlanModal());
@@ -346,6 +370,7 @@ async function loadDashboardData() {
     }
 
     populateAdminClientPlanOptions();
+    await loadSettingsData();
     renderActiveTab();
   } catch (err) {
     console.error("Falha ao carregar dados administrativos:", err);
@@ -363,10 +388,12 @@ function switchTab(tabName) {
   tabBtnSubscriptions?.classList.remove("active");
   tabBtnInvoices?.classList.remove("active");
   tabBtnPlans?.classList.remove("active");
+  tabBtnSettings?.classList.remove("active");
 
   if (tabContentSubscriptions) tabContentSubscriptions.style.display = "none";
   if (tabContentInvoices) tabContentInvoices.style.display = "none";
   if (tabContentPlans) tabContentPlans.style.display = "none";
+  if (tabContentSettings) tabContentSettings.style.display = "none";
 
   if (tabName === "subscriptions") {
     tabBtnSubscriptions?.classList.add("active");
@@ -377,6 +404,9 @@ function switchTab(tabName) {
   } else if (tabName === "plans") {
     tabBtnPlans?.classList.add("active");
     if (tabContentPlans) tabContentPlans.style.display = "block";
+  } else if (tabName === "settings") {
+    tabBtnSettings?.classList.add("active");
+    if (tabContentSettings) tabContentSettings.style.display = "block";
   }
 
   renderActiveTab();
@@ -392,6 +422,90 @@ function renderActiveTab() {
     renderInvoicesTable();
   } else if (activeTab === "plans") {
     renderPlansTable();
+  } else if (activeTab === "settings") {
+    renderSettingsForm();
+  }
+}
+
+/**
+ * Renderiza e preenche o formulário de configurações do sistema
+ */
+function renderSettingsForm() {
+  if (adminSettingEmail) adminSettingEmail.value = systemSettings.adminEmail || "";
+  if (adminSettingWhatsapp) adminSettingWhatsapp.value = systemSettings.adminWhatsapp || "";
+}
+
+/**
+ * Salva as configurações de notificação do admin no Firestore / settings/public
+ */
+async function handleSaveSettings(e) {
+  e.preventDefault();
+  const submitBtn = document.getElementById("btn-save-settings");
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = "A gravar...";
+  }
+
+  try {
+    const adminEmail = adminSettingEmail?.value.trim();
+    const adminWhatsapp = adminSettingWhatsapp?.value.trim();
+
+    if (!adminEmail || !adminEmail.includes("@")) {
+      throw new Error("Por favor, informe um endereço de e-mail válido.");
+    }
+    if (!adminWhatsapp || adminWhatsapp.length < 8) {
+      throw new Error("Por favor, informe um número de telemóvel/WhatsApp válido.");
+    }
+
+    systemSettings = {
+      adminEmail,
+      adminWhatsapp
+    };
+
+    if (isFirebaseConfigured() && db) {
+      const settingsRef = doc(db, "settings", "public");
+      await setDoc(settingsRef, {
+        adminEmail,
+        adminWhatsapp,
+        updatedAt: serverTimestamp(),
+        updatedBy: currentAdmin ? currentAdmin.uid : "admin"
+      }, { merge: true });
+    }
+
+    localStorage.setItem("megason_system_settings", JSON.stringify(systemSettings));
+    showToast("Configurações gravadas com sucesso!", "success");
+  } catch (err) {
+    showToast(err.message || "Erro ao gravar configurações.", "danger");
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Gravar Configurações";
+    }
+  }
+}
+
+/**
+ * Carrega as configurações de notificação do sistema
+ */
+async function loadSettingsData() {
+  try {
+    if (isFirebaseConfigured() && db) {
+      const settingsRef = doc(db, "settings", "public");
+      const snap = await getDoc(settingsRef);
+      if (snap.exists()) {
+        const data = snap.data();
+        if (data.adminEmail) systemSettings.adminEmail = data.adminEmail;
+        if (data.adminWhatsapp) systemSettings.adminWhatsapp = data.adminWhatsapp;
+      }
+    } else {
+      const stored = localStorage.getItem("megason_system_settings");
+      if (stored) {
+        systemSettings = JSON.parse(stored);
+      }
+    }
+    renderSettingsForm();
+  } catch (err) {
+    console.warn("Aviso ao carregar configurações públicas:", err);
   }
 }
 
@@ -598,7 +712,7 @@ function renderInvoicesTable() {
     return `
       <tr>
         <td>
-          <span style="font-size: var(--font-size-xs); font-family: monospace; font-weight: var(--font-weight-bold);">${inv.id.slice(0, 10)}...</span>
+          <span style="font-size: var(--font-size-xs); font-family: monospace; font-weight: var(--font-weight-bold); color: var(--color-primary);">${inv.invoiceNumber || inv.id}</span>
         </td>
         <td>
           <span style="font-size: var(--font-size-xs); font-family: monospace; color: var(--color-text-muted);">${(inv.subscriptionId || "-").slice(0, 10)}...</span>
@@ -879,10 +993,15 @@ async function handleAdminCreateClient(e) {
     // Formata mensagem para WhatsApp pronta para copiar
     const planName = result.subscription.planName || "ChatGPT Plus";
     const planPrice = result.subscription.price || 0;
+    const clientCode = result.user?.clientCode || "AI-Cliente";
+    const invoiceNum = result.invoice?.invoiceNumber || result.invoice?.id;
+
     const whatsappMsg = `*MEGASON — Acesso Ativado ChatGPT Plus*
 Olá, ${fullName}! O seu acesso ao ChatGPT Plus foi criado e ativado com sucesso pela nossa equipa.
 
 📋 *Detalhes da Subscrição:*
+• *ID de Cliente:* ${clientCode}
+• *Fatura Oficial:* ${invoiceNum}
 • *Plano:* ${planName} (${result.subscription.durationDays || 30} dias)
 • *Valor:* ${planPrice.toLocaleString("pt-MZ")} MT
 • *Pasta Exclusiva:* ${result.subscription.folderName || folderName}

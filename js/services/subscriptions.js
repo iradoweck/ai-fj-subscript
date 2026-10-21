@@ -19,6 +19,61 @@ import {
   serverTimestamp 
 } from "./firebase.js";
 import { getPlanById } from "./plans.js";
+import { generateCustomerCode } from "./auth.js";
+
+/**
+ * Gera o próximo número sequencial oficial de fatura no formato canónico FT[ANO]AIXXX (ex: FT2026AI028)
+ * @returns {Promise<string>}
+ */
+export async function getNextInvoiceNumber() {
+  const currentYear = new Date().getFullYear();
+  const counterId = `invoices_${currentYear}`;
+
+  if (isFirebaseConfigured() && db) {
+    try {
+      const counterRef = doc(db, "counters", counterId);
+      const counterSnap = await getDoc(counterRef);
+      let nextSeq = 1;
+
+      if (counterSnap.exists()) {
+        const data = counterSnap.data();
+        nextSeq = (Number(data.lastSequence) || 0) + 1;
+      } else {
+        // Fallback: busca faturas existentes para determinar a contagem base
+        try {
+          const invSnap = await getDocs(collection(db, "invoices"));
+          let count = 0;
+          invSnap.forEach(d => {
+            if (d.id.startsWith(`FT${currentYear}AI`)) count++;
+          });
+          nextSeq = count + 1;
+        } catch {
+          nextSeq = 1;
+        }
+      }
+
+      // Atualiza o contador de faturas
+      await setDoc(counterRef, {
+        year: currentYear,
+        lastSequence: nextSeq,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+
+      const seqStr = String(nextSeq).padStart(3, "0");
+      return `FT${currentYear}AI${seqStr}`;
+    } catch (err) {
+      console.warn("Erro ao obter contador de fatura no Firestore, usando fallback local:", err);
+    }
+  }
+
+  // Fallback para modo demonstração / offline
+  const storedCounterKey = `megason_invoice_seq_${currentYear}`;
+  const stored = parseInt(localStorage.getItem(storedCounterKey) || "0", 10);
+  const nextSeq = stored + 1;
+  localStorage.setItem(storedCounterKey, String(nextSeq));
+  const seqStr = String(nextSeq).padStart(3, "0");
+  return `FT${currentYear}AI${seqStr}`;
+}
 
 /**
  * Detecta o método de pagamento provável com base no texto do comprovativo SMS
@@ -69,12 +124,14 @@ export async function createSubscriptionOrder({
 
   // Se o Firebase estiver ativo, persiste nas coleções oficiais
   if (isFirebaseConfigured() && db) {
-    // 1. Cria ID para a fatura e para a subscrição
+    // 1. Gera o número sequencial canónico da fatura FT[ANO]AIXXX e o ID da subscrição
+    const invoiceId = await getNextInvoiceNumber();
     const subRef = doc(collection(db, "subscriptions"));
-    const invRef = doc(collection(db, "invoices"));
+    const invRef = doc(db, "invoices", invoiceId);
 
     const invoiceData = {
-      id: invRef.id,
+      id: invoiceId,
+      invoiceNumber: invoiceId,
       subscriptionId: subRef.id,
       userId,
       customerName: customerName.trim(),
@@ -110,7 +167,7 @@ export async function createSubscriptionOrder({
       accessCredentials: null,
       startDate: null,
       endDate: null,
-      latestInvoiceId: invRef.id,
+      latestInvoiceId: invoiceId,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     };
@@ -127,10 +184,11 @@ export async function createSubscriptionOrder({
 
   // Modo Demonstração (Persistência Local no localStorage)
   const mockSubId = "sub_" + Date.now();
-  const mockInvId = "inv_" + Date.now();
+  const mockInvId = await getNextInvoiceNumber();
 
   const mockInvoice = {
     id: mockInvId,
+    invoiceNumber: mockInvId,
     subscriptionId: mockSubId,
     userId,
     customerName: customerName.trim(),
@@ -349,9 +407,11 @@ export async function adminCreateCustomerWithSubscription({
     try {
       const userRef = doc(collection(db, "users"));
       userId = userRef.id;
+      const clientCode = generateCustomerCode();
 
       const profileData = {
         uid: userId,
+        clientCode,
         fullName: fullName.trim(),
         email: email.trim().toLowerCase(),
         whatsappNumber: whatsappNumber.trim(),
@@ -368,9 +428,10 @@ export async function adminCreateCustomerWithSubscription({
 
       await setDoc(userRef, profileData);
 
-      // 2. Cria subscrição
+      // 2. Cria subscrição e fatura sequencial canónica FT[ANO]AIXXX
       const subRef = doc(collection(db, "subscriptions"));
-      const invRef = doc(collection(db, "invoices"));
+      const invoiceId = await getNextInvoiceNumber();
+      const invRef = doc(db, "invoices", invoiceId);
 
       const subData = {
         id: subRef.id,
@@ -388,7 +449,7 @@ export async function adminCreateCustomerWithSubscription({
         accessCredentials: targetCreds,
         startDate: markAsPaid ? startDate : null,
         endDate: markAsPaid ? endDate : null,
-        latestInvoiceId: invRef.id,
+        latestInvoiceId: invoiceId,
         approvedBy: markAsPaid ? adminUid : null,
         approvedAt: markAsPaid ? serverTimestamp() : null,
         adminNotes: adminNotes ? adminNotes.trim() : "Criado manualmente pelo Administrador",
@@ -398,7 +459,8 @@ export async function adminCreateCustomerWithSubscription({
 
       // 3. Cria fatura
       const invData = {
-        id: invRef.id,
+        id: invoiceId,
+        invoiceNumber: invoiceId,
         subscriptionId: subRef.id,
         userId,
         customerName: fullName.trim(),
@@ -434,8 +496,10 @@ export async function adminCreateCustomerWithSubscription({
   }
 
   // Modo Demonstração
+  const demoClientCode = generateCustomerCode();
   const demoProfile = {
     uid: userId,
+    clientCode: demoClientCode,
     fullName: fullName.trim(),
     email: email.trim().toLowerCase(),
     whatsappNumber: whatsappNumber.trim(),
@@ -451,7 +515,7 @@ export async function adminCreateCustomerWithSubscription({
   };
 
   const demoSubId = "sub_adm_" + Date.now();
-  const demoInvId = "inv_adm_" + Date.now();
+  const demoInvId = await getNextInvoiceNumber();
 
   const demoSub = {
     id: demoSubId,

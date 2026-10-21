@@ -890,15 +890,28 @@ function setupAuthStateListener() {
 }
 
 /**
- * Atualiza os botões e saudações do cabeçalho
+ * Atualiza os botões, navegação e saudações do cabeçalho
+ * Garante separação estrita: Landing Page (Visitantes) vs Portal do Utilizador (Clientes Logados)
  * @param {object} state ({ user, profile, isAdmin })
  */
 function updateHeaderAuth(state) {
   const headerActions = document.getElementById("header-actions");
+  const headerNav = document.getElementById("header-nav");
   if (!headerActions) return;
 
   if (!state.user) {
-    // Visitante desconectado
+    // 1. Visitante desconectado (Landing Page Pública)
+    if (headerNav) {
+      headerNav.style.display = "flex";
+      headerNav.innerHTML = `
+        <a href="#vantagens" class="nav-link">Vantagens</a>
+        <a href="#quem-usa" class="nav-link">Para Quem É</a>
+        <a href="#planos" class="nav-link">Planos</a>
+        <a href="#como-funciona" class="nav-link">Como Funciona</a>
+        <a href="#duvidas" class="nav-link">Dúvidas</a>
+      `;
+    }
+
     headerActions.innerHTML = `
       <button type="button" class="btn btn-secondary btn-sm" id="btn-header-login">
         Entrar
@@ -918,12 +931,20 @@ function updateHeaderAuth(state) {
     return;
   }
 
-  // Utilizador Autenticado
-  const firstName = state.profile?.fullName ? state.profile.fullName.split(" ")[0] : "Cliente";
+  // 2. Utilizador Autenticado
+  const profile = state.profile || {};
+  const firstName = profile.fullName ? profile.fullName.split(" ")[0] : "Cliente";
+  const clientCode = profile.clientCode || "AI-Cliente";
 
   if (state.isAdmin) {
+    if (headerNav) {
+      headerNav.style.display = "flex";
+      headerNav.innerHTML = `
+        <span class="badge badge-active" style="padding: 4px 10px; font-size: 11px;">Administração Central</span>
+      `;
+    }
+
     headerActions.innerHTML = `
-      <span class="badge badge-active" style="padding: 4px 10px; font-size: 11px;">Administrador</span>
       <a href="admin/" class="btn btn-secondary btn-sm" id="btn-header-admin">
         Painel Admin
       </a>
@@ -932,22 +953,34 @@ function updateHeaderAuth(state) {
       </button>
     `;
   } else {
+    // Portal do Utilizador (PU): Limpa links de âncoras da landing e coloca o ID oficial do cliente
+    if (headerNav) {
+      headerNav.style.display = "flex";
+      headerNav.innerHTML = `
+        <span class="badge badge-active" style="font-family: monospace; font-size: 12px; font-weight: 700; padding: 4px 12px; display: inline-flex; align-items: center; gap: 6px; letter-spacing: 0.04em;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+          ID: ${clientCode}
+        </span>
+      `;
+    }
+
     headerActions.innerHTML = `
       <span style="font-size: var(--font-size-xs); font-weight: var(--font-weight-medium); color: var(--color-text-secondary);">
         Olá, <strong>${firstName}</strong>
       </span>
-      <button type="button" class="btn btn-secondary btn-sm" id="btn-header-my-subs">
-        Minha Subscrição
+      <button type="button" class="btn btn-secondary btn-sm" id="btn-header-edit-profile" title="Atualizar dados de perfil e senha">
+        Meu Perfil
       </button>
       <button type="button" class="btn btn-outline btn-sm" id="btn-header-logout" title="Terminar Sessão">
         Sair
       </button>
     `;
 
-    const mySubsBtn = document.getElementById("btn-header-my-subs");
-    if (mySubsBtn) {
-      mySubsBtn.addEventListener("click", () => {
-        if (window.__openMySubModal) window.__openMySubModal();
+    const editProfileBtn = document.getElementById("btn-header-edit-profile");
+    if (editProfileBtn) {
+      editProfileBtn.addEventListener("click", () => {
+        const modal = document.getElementById("edit-profile-modal");
+        if (modal) modal.style.display = "flex";
       });
     }
   }
@@ -1358,10 +1391,23 @@ async function loadCustomerDashboardData(state) {
   const nameEl = document.getElementById("dashboard-user-name");
   const detailsEl = document.getElementById("dashboard-user-details");
   const provinceBadge = document.getElementById("dashboard-province-badge");
+  const clientCodeBadge = document.getElementById("dashboard-client-code-badge");
+  const supportClientCode = document.getElementById("dashboard-support-client-code");
+  const supportWhatsappLink = document.getElementById("btn-dashboard-whatsapp-support");
+
+  const clientCode = profile.clientCode || "AI-Cliente";
 
   if (nameEl) nameEl.textContent = `Olá, ${profile.fullName || "Cliente"}!`;
+  if (clientCodeBadge) clientCodeBadge.textContent = `ID: ${clientCode}`;
+  if (supportClientCode) supportClientCode.textContent = clientCode;
+
+  if (supportWhatsappLink) {
+    const textMsg = encodeURIComponent(`Olá equipa MEGASON, sou o cliente ${clientCode} (${profile.fullName || "Cliente"}) e preciso de suporte com a minha subscrição do ChatGPT Plus.`);
+    supportWhatsappLink.href = `https://wa.me/258842256366?text=${textMsg}`;
+  }
+
   if (detailsEl) {
-    detailsEl.textContent = `WhatsApp: ${profile.whatsappNumber || "--"} • Email: ${profile.email || state.user.email || "--"}`;
+    detailsEl.textContent = `ID: ${clientCode} • WhatsApp: ${profile.whatsappNumber || "--"} • Email: ${profile.email || state.user.email || "--"}`;
   }
   if (provinceBadge) {
     provinceBadge.textContent = profile.province || "Moçambique";
@@ -1477,7 +1523,7 @@ async function loadCustomerDashboardData(state) {
 
           return `
             <tr>
-              <td><span style="font-family: var(--font-family-mono); font-size: 11px; font-weight: 600;">#${inv.id.slice(0, 8)}</span></td>
+              <td><span style="font-family: var(--font-family-mono); font-size: 11px; font-weight: 700; color: var(--color-primary);">${inv.invoiceNumber || inv.id}</span></td>
               <td>${inv.planName || "ChatGPT Plus"}</td>
               <td><strong style="color: var(--color-primary);">${inv.amount} MT</strong></td>
               <td><span class="${methodBadgeClass}" style="font-size: 11px; padding: 2px 8px;">${inv.paymentMethod || "M-Pesa"}</span></td>

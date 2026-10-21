@@ -33,6 +33,12 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Contadores de sequenciais (ex: faturas anuais FT[ANO]AIXXX)
+    match /counters/{counterId} {
+      allow read: if isAuthenticated() || isAdmin();
+      allow write: if isAuthenticated() || isAdmin();
+    }
+
     // Planos fixos: leitura pública para visitantes, escrita apenas para Admin
     match /plans/{planId} {
       allow read: if true;

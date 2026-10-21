@@ -41,6 +41,19 @@ export const MOZAMBIQUE_PROVINCES = [
 ];
 
 /**
+ * Gera um ID canónico e único de cliente no formato MEGASON AI-XXXX (ex: AI-1K7L, AI-H5I8)
+ * @returns {string}
+ */
+export function generateCustomerCode() {
+  const chars = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+  let code = "";
+  for (let i = 0; i < 4; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return `AI-${code}`;
+}
+
+/**
  * Validação e formatação de número moçambicano
  * Aceita: 82/83/84/85/86/87 com ou sem prefixo +258
  * @param {string} phone 
@@ -106,8 +119,11 @@ export async function registerUser({
     // Atualiza nome visível no Auth
     await updateProfile(user, { displayName: fullName });
 
+    const customerCode = generateCustomerCode();
+
     const profileData = {
       uid: user.uid,
+      clientCode: customerCode,
       fullName: fullName.trim(),
       email: email.trim().toLowerCase(),
       whatsappNumber: normalizedPhone,
@@ -131,6 +147,7 @@ export async function registerUser({
   const mockUid = "demo_usr_" + Date.now();
   const mockProfile = {
     uid: mockUid,
+    clientCode: generateCustomerCode(),
     fullName: fullName.trim(),
     email: email.trim().toLowerCase(),
     whatsappNumber: normalizedPhone,
@@ -215,12 +232,18 @@ export async function loginWithGoogle() {
     const userDoc = await getDoc(userRef);
 
     if (userDoc.exists()) {
-      return userDoc.data();
+      const data = userDoc.data();
+      if (!data.clientCode) {
+        data.clientCode = generateCustomerCode();
+        setDoc(userRef, { clientCode: data.clientCode }, { merge: true }).catch(() => {});
+      }
+      return data;
     }
 
     // Primeiro login via Google: cria perfil com dados do Google
     const profileData = {
       uid: user.uid,
+      clientCode: generateCustomerCode(),
       fullName: user.displayName || "Cliente MEGASON",
       email: user.email.toLowerCase(),
       whatsappNumber: "",
@@ -282,16 +305,28 @@ export async function getUserProfile(uid) {
   if (!uid) return null;
 
   if (isFirebaseConfigured() && db) {
-    const snapshot = await getDoc(doc(db, "users", uid));
+    const userRef = doc(db, "users", uid);
+    const snapshot = await getDoc(userRef);
     if (snapshot.exists()) {
-      return snapshot.data();
+      const data = snapshot.data();
+      if (!data.clientCode) {
+        data.clientCode = generateCustomerCode();
+        setDoc(userRef, { clientCode: data.clientCode }, { merge: true }).catch(() => {});
+      }
+      return data;
     }
   }
 
   const demo = localStorage.getItem("megason_demo_user");
   if (demo) {
     const parsed = JSON.parse(demo);
-    if (parsed.uid === uid) return parsed;
+    if (parsed.uid === uid) {
+      if (!parsed.clientCode) {
+        parsed.clientCode = generateCustomerCode();
+        localStorage.setItem("megason_demo_user", JSON.stringify(parsed));
+      }
+      return parsed;
+    }
   }
 
   return null;

@@ -198,6 +198,29 @@ def test_brand_credits():
     assert "MEGASON" in content, "Nome da marca oficial MEGASON deve predominar"
 
 # -----------------------------------------------------------------------------
+# 5. Testes de Identificadores Canónicos (IDs de Clientes e Faturas)
+# -----------------------------------------------------------------------------
+print("📦 Testes de Formatos Oficiais de Clientes e Faturas:")
+
+@test("Formato do ID de Cliente: AI-XXXX (ex: AI-1K7L, AI-H5I8)")
+def test_client_id_format():
+    client_id_pattern = re.compile(r"^AI-[A-Z0-9]{4}$")
+    sample_ids = ["AI-1K7L", "AI-H5I8", "AI-9B3C", "AI-X7Y2"]
+    for cid in sample_ids:
+        assert client_id_pattern.match(cid), f"ID de cliente inválido: {cid}"
+    assert not client_id_pattern.match("AI-123"), "Deveria rejeitar com 3 caracteres"
+    assert not client_id_pattern.match("usr_123456"), "Deveria rejeitar ID legado"
+
+@test("Formato da Fatura: FT[ANO]AIXXX (ex: FT2026AI028, FT2026AI001)")
+def test_invoice_id_format():
+    invoice_pattern = re.compile(r"^FT(20\d\d)AI\d{3,}$")
+    sample_invoices = ["FT2026AI001", "FT2026AI028", "FT2026AI105"]
+    for inv in sample_invoices:
+        assert invoice_pattern.match(inv), f"Fatura inválida: {inv}"
+    assert not invoice_pattern.match("inv_123456"), "Deveria rejeitar fatura no formato legado"
+    assert not invoice_pattern.match("FT26AI01"), "Deveria exigir ano de 4 dígitos e mínimo de 3 dígitos sequenciais"
+
+# -----------------------------------------------------------------------------
 # Resumo Final
 # -----------------------------------------------------------------------------
 print(f"\n{YELLOW}------------------------------------------------------{RESET}")

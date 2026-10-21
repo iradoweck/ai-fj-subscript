@@ -95,14 +95,45 @@ Na aba **"Faturas & Auditoria"**, é possível auditar cada cobrança, forma de 
 
 ---
 
-## 7. Pesquisa e Filtros Operacionais
+## 7. Identificadores Oficiais de Clientes e Faturas
 
-- **Barra de Pesquisa:** Digite o Nome do cliente, Telemóvel/WhatsApp (ex: `84XXXXXXX`), Email, ID da Subscrição ou Nome da Pasta para filtragem instantânea em tela.
+Para organização contábil, jurídica e atendimento padronizado em Moçambique, a plataforma utiliza identificadores canónicos:
+
+- **Código Único de Cliente (`AI-XXXX`):**  
+  Todo cliente registrado recebe um identificador aleatório de 4 caracteres alfanuméricos com o prefixo oficial (ex: `AI-1K7L` ou `AI-H5I8`). Este código acompanha o cliente no portal, na tabela de subscrições e no suporte via WhatsApp.
+- **Número Sequencial de Fatura (`FT[ANO]AIXXX`):**  
+  Cada fatura emitida recebe uma numeração cronológica anual sequencial (ex: `FT2026AI001`, `FT2026AI028`). Este identificador é utilizado para conciliação bancária nos extratos do M-Pesa, E-Mola e Absa Bank.
+
+---
+
+## 8. Gestão Dinâmica de Pacotes & Preços
+
+Na aba **"Pacotes & Preços"**, a administração possui total autonomia comercial sobre o catálogo:
+
+1. **Criar Novo Pacote:** Clique em `+ Novo Pacote / Plano` para definir nome, duração em dias, preço em Meticais (MT), destaque comercial e selos promocionais (ex: "Poupa 200 MT").
+2. **Editar Pacote:** Ajuste valores ou descrições a qualquer momento; as alterações refletem instantaneamente na vitrine e no checkout.
+3. **Apagar Pacote:** Remove pacotes descontinuados do catálogo com confirmação de segurança.
+4. **Sincronizar Padrão:** Botão de emergência que restaura os 4 pacotes oficiais da MEGASON (30d/300 MT, 60d/550 MT, 90d/800 MT e 120d/1000 MT).
+
+---
+
+## 9. Configurações de Notificações e Canais Oficiais
+
+Na aba **"Configurações"**, o administrador pode configurar:
+
+- **E-mail Oficial:** Endereço de e-mail corporativo para onde são encaminhados os alertas e comprovativos de pagamento dos clientes.
+- **WhatsApp Oficial:** Número de telemóvel da central de atendimento (padrão: `842256366`), utilizado para gerar os links do `wa.me` de forma contextualizada.
+
+---
+
+## 10. Pesquisa e Filtros Operacionais
+
+- **Barra de Pesquisa:** Digite o Nome do cliente, ID de Cliente (`AI-XXXX`), Nº de Fatura (`FT2026AIXXX`), Telemóvel/WhatsApp (ex: `84XXXXXXX`), Email ou Nome da Pasta para filtragem instantânea em tela.
 - **Filtro de Status:** Permite alternar rapidamente para a lista de `Pendentes` (para focar na fila prioritária de liberação), `Ativas`, `Suspensas` ou `Canceladas`.
 
 ---
 
-## 8. Procedimento de Ativação de Administradores
+## 11. Procedimento de Ativação de Administradores
 
 Para conceder permissão de Administrador a um colaborador da MEGASON com máxima segurança:
 1. O colaborador deve registar-se na plataforma com o seu email corporativo.

@@ -218,6 +218,14 @@
           </svg>
           Pacotes & Preços
         </button>
+
+        <button id="tab-btn-settings" class="admin-tab-btn" data-tab="settings">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+          Configurações
+        </button>
       </nav>
 
       <!-- BARRA DE PESQUISA E FILTROS -->
@@ -342,6 +350,58 @@
               </tr>
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <!-- ABA 4: CONFIGURAÇÕES DO SISTEMA & NOTIFICAÇÕES -->
+      <div id="tab-content-settings" class="tab-pane" style="display: none;">
+        <div style="max-width: 680px; background: var(--color-bg-surface); border: 1px solid var(--color-border-subtle); border-radius: var(--radius-lg); padding: var(--space-6);">
+          <div style="margin-bottom: var(--space-6);">
+            <h3 style="font-size: var(--font-size-lg); font-weight: var(--font-weight-bold); margin: 0 0 4px 0;">Configurações de Notificações</h3>
+            <p style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin: 0;">
+              Defina os canais oficiais para onde os comprovativos de pagamentos e avisos de novos pedidos devem ser encaminhados.
+            </p>
+          </div>
+
+          <form id="form-admin-settings">
+            <div style="display: flex; flex-direction: column; gap: var(--space-4);">
+              <!-- Email de Notificações -->
+              <div>
+                <label for="admin-setting-email" style="font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold); display: block; margin-bottom: 6px;">
+                  E-mail Oficial para Recebimento de Comprovativos *
+                </label>
+                <input type="email" id="admin-setting-email" class="form-input" placeholder="Ex: comercial@admin-megason.site" required>
+                <span style="font-size: 11px; color: var(--color-text-muted); margin-top: 4px; display: block;">
+                  Os comprovativos submetidos pelos clientes são direcionados para este e-mail.
+                </span>
+              </div>
+
+              <!-- WhatsApp de Atendimento -->
+              <div>
+                <label for="admin-setting-whatsapp" style="font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold); display: block; margin-bottom: 6px;">
+                  Número do WhatsApp de Atendimento (Moçambique) *
+                </label>
+                <input type="text" id="admin-setting-whatsapp" class="form-input" placeholder="842256366" required>
+                <span style="font-size: 11px; color: var(--color-text-muted); margin-top: 4px; display: block;">
+                  Utilizado para gerar os links oficiais do wa.me no checkout e na mensagem de boas-vindas do cliente.
+                </span>
+              </div>
+
+              <!-- Nome da Empresa / Responsável -->
+              <div>
+                <label for="admin-setting-brand" style="font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold); display: block; margin-bottom: 6px;">
+                  Nome Comercial da Empresa
+                </label>
+                <input type="text" id="admin-setting-brand" class="form-input" value="MEGASON" readonly style="background-color: var(--color-bg-subtle);">
+              </div>
+
+              <div style="display: flex; justify-content: flex-end; padding-top: var(--space-2); border-top: 1px solid var(--color-border-subtle); margin-top: var(--space-2);">
+                <button type="submit" id="btn-save-settings" class="btn btn-primary btn-sm">
+                  Gravar Configurações
+                </button>
+              </div>
+            </div>
+          </form>
         </div>
       </div>
 
