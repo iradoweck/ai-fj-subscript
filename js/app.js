@@ -496,12 +496,23 @@ function setupAuthModal() {
 
   function showAlert(message, type = "danger") {
     if (!alertContainer) return;
-    alertContainer.innerHTML = `
-      <div class="alert alert-${type}" style="margin-bottom: 0;">
-        ${type === "danger" ? Icons.alertTriangle : Icons.check}
-        <div>${message}</div>
-      </div>
-    `;
+
+    const safeType = type === "danger" ? "danger" : "success";
+    alertContainer.innerHTML = "";
+
+    const alertEl = document.createElement("div");
+    alertEl.className = `alert alert-${safeType}`;
+    alertEl.style.marginBottom = "0";
+
+    const iconWrapper = document.createElement("span");
+    iconWrapper.innerHTML = safeType === "danger" ? Icons.alertTriangle : Icons.check;
+
+    const messageEl = document.createElement("div");
+    messageEl.textContent = String(message ?? "");
+
+    alertEl.appendChild(iconWrapper);
+    alertEl.appendChild(messageEl);
+    alertContainer.appendChild(alertEl);
     alertContainer.style.display = "block";
   }
 
