@@ -21,10 +21,19 @@ import {
   adminCreateCustomerWithSubscription
 } from "./services/subscriptions.js";
 
+import {
+  fetchDynamicPlans,
+  savePlanToFirestore,
+  deletePlanFromFirestore,
+  seedOfficialPlansToFirestore,
+  SHARED_FEATURES
+} from "./services/plans.js";
+
 // Estado da Aplicação Administrativa
 let currentAdmin = null;
 let allSubscriptions = [];
 let allInvoices = [];
+let allPlans = [];
 let activeTab = "subscriptions";
 let searchQuery = "";
 let statusFilter = "all";
@@ -52,8 +61,10 @@ const tabBadgePendingCount = document.getElementById("tab-badge-pending-count");
 // Abas
 const tabBtnSubscriptions = document.getElementById("tab-btn-subscriptions");
 const tabBtnInvoices = document.getElementById("tab-btn-invoices");
+const tabBtnPlans = document.getElementById("tab-btn-plans");
 const tabContentSubscriptions = document.getElementById("tab-content-subscriptions");
 const tabContentInvoices = document.getElementById("tab-content-invoices");
+const tabContentPlans = document.getElementById("tab-content-plans");
 
 // Filtros
 const adminSearchInput = document.getElementById("admin-search-input");
@@ -62,6 +73,7 @@ const adminStatusFilter = document.getElementById("admin-status-filter");
 // Tabelas
 const tbodySubscriptions = document.getElementById("tbody-subscriptions");
 const tbodyInvoices = document.getElementById("tbody-invoices");
+const tbodyPlans = document.getElementById("tbody-plans");
 
 // Modais
 const modalOrderDetails = document.getElementById("modal-order-details");
@@ -71,6 +83,14 @@ const modalCancelOrder = document.getElementById("modal-cancel-order");
 const modalAdminLogin = document.getElementById("modal-admin-login");
 const modalAdminCreateClient = document.getElementById("modal-admin-create-client");
 const modalAdminClientCreatedSuccess = document.getElementById("modal-admin-client-created-success");
+const modalAdminPlanForm = document.getElementById("modal-admin-plan-form");
+
+// Elementos de Planos
+const btnAdminOpenCreatePlan = document.getElementById("btn-admin-open-create-plan");
+const btnAdminSeedPlans = document.getElementById("btn-admin-seed-plans");
+const formAdminPlan = document.getElementById("form-admin-plan");
+const modalPlanFormTitle = document.getElementById("modal-plan-form-title");
+const adminClientPlanSelect = document.getElementById("admin-client-plan");
 
 // Botão de Criar Cliente
 const btnAdminOpenCreateClient = document.getElementById("btn-admin-open-create-client");
@@ -197,6 +217,12 @@ function setupEventListeners() {
   // Troca de Abas
   tabBtnSubscriptions?.addEventListener("click", () => switchTab("subscriptions"));
   tabBtnInvoices?.addEventListener("click", () => switchTab("invoices"));
+  tabBtnPlans?.addEventListener("click", () => switchTab("plans"));
+
+  // Gestão de Planos
+  btnAdminOpenCreatePlan?.addEventListener("click", () => openCreatePlanModal());
+  btnAdminSeedPlans?.addEventListener("click", () => handleSeedDefaultPlans());
+  formAdminPlan?.addEventListener("submit", handleSavePlan);
 
   // Filtro de Busca
   adminSearchInput?.addEventListener("input", (e) => {
@@ -267,7 +293,16 @@ function setupEventListeners() {
   });
 
   // Fechamento pelo backdrop
-  [modalOrderDetails, modalApproveOrder, modalSuspendOrder, modalCancelOrder, modalAdminLogin, modalAdminCreateClient, modalAdminClientCreatedSuccess].forEach(modal => {
+  [
+    modalOrderDetails, 
+    modalApproveOrder, 
+    modalSuspendOrder, 
+    modalCancelOrder, 
+    modalAdminLogin, 
+    modalAdminCreateClient, 
+    modalAdminClientCreatedSuccess,
+    modalAdminPlanForm
+  ].forEach(modal => {
     if (!modal) return;
     modal.addEventListener("click", (e) => {
       if (e.target === modal) closeModal(modal);
@@ -285,14 +320,16 @@ function setupEventListeners() {
  */
 async function loadDashboardData() {
   try {
-    const [metrics, subs, invs] = await Promise.all([
+    const [metrics, subs, invs, plans] = await Promise.all([
       getFinancialMetrics(),
       getAllSubscriptions("all"),
-      getAllInvoices("all")
+      getAllInvoices("all"),
+      fetchDynamicPlans()
     ]);
 
     allSubscriptions = subs;
     allInvoices = invs;
+    allPlans = plans;
 
     // Atualiza KPIs
     kpiTotalReceived.textContent = `${metrics.totalReceived.toLocaleString("pt-MZ")} MT`;
@@ -308,6 +345,7 @@ async function loadDashboardData() {
       tabBadgePendingCount.style.display = "none";
     }
 
+    populateAdminClientPlanOptions();
     renderActiveTab();
   } catch (err) {
     console.error("Falha ao carregar dados administrativos:", err);
@@ -320,17 +358,27 @@ async function loadDashboardData() {
  */
 function switchTab(tabName) {
   activeTab = tabName;
+  
+  // Reseta classes ativas
+  tabBtnSubscriptions?.classList.remove("active");
+  tabBtnInvoices?.classList.remove("active");
+  tabBtnPlans?.classList.remove("active");
+
+  if (tabContentSubscriptions) tabContentSubscriptions.style.display = "none";
+  if (tabContentInvoices) tabContentInvoices.style.display = "none";
+  if (tabContentPlans) tabContentPlans.style.display = "none";
+
   if (tabName === "subscriptions") {
-    tabBtnSubscriptions.classList.add("active");
-    tabBtnInvoices.classList.remove("active");
-    tabContentSubscriptions.style.display = "block";
-    tabContentInvoices.style.display = "none";
-  } else {
-    tabBtnInvoices.classList.add("active");
-    tabBtnSubscriptions.classList.remove("active");
-    tabContentInvoices.style.display = "block";
-    tabContentSubscriptions.style.display = "none";
+    tabBtnSubscriptions?.classList.add("active");
+    if (tabContentSubscriptions) tabContentSubscriptions.style.display = "block";
+  } else if (tabName === "invoices") {
+    tabBtnInvoices?.classList.add("active");
+    if (tabContentInvoices) tabContentInvoices.style.display = "block";
+  } else if (tabName === "plans") {
+    tabBtnPlans?.classList.add("active");
+    if (tabContentPlans) tabContentPlans.style.display = "block";
   }
+
   renderActiveTab();
 }
 
@@ -340,8 +388,10 @@ function switchTab(tabName) {
 function renderActiveTab() {
   if (activeTab === "subscriptions") {
     renderSubscriptionsTable();
-  } else {
+  } else if (activeTab === "invoices") {
     renderInvoicesTable();
+  } else if (activeTab === "plans") {
+    renderPlansTable();
   }
 }
 
@@ -883,8 +933,232 @@ function closeAllModals() {
     modalCancelOrder, 
     modalAdminLogin,
     modalAdminCreateClient,
-    modalAdminClientCreatedSuccess
+    modalAdminClientCreatedSuccess,
+    modalAdminPlanForm
   ].forEach(closeModal);
+}
+
+/**
+ * Renderiza a Tabela de Gestão de Planos & Preços
+ */
+function renderPlansTable() {
+  if (!tbodyPlans) return;
+
+  if (!allPlans || allPlans.length === 0) {
+    tbodyPlans.innerHTML = `
+      <tr>
+        <td colspan="7" style="text-align: center; padding: var(--space-8); color: var(--color-text-muted);">
+          Nenhum plano cadastrado. Clique em "Sincronizar Padrão" para carregar os 4 pacotes oficiais.
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbodyPlans.innerHTML = allPlans.map(plan => {
+    const isFeatured = plan.featured;
+    const badgeText = plan.badge || (plan.savings ? plan.savings : "-");
+
+    return `
+      <tr data-plan-id="${plan.id}">
+        <td><code style="font-size: 11px; background-color: var(--color-bg-subtle); padding: 2px 6px; border-radius: 4px;">${plan.id}</code></td>
+        <td>
+          <div style="font-weight: var(--font-weight-bold); color: var(--color-text-primary); font-size: var(--font-size-sm);">
+            ${plan.name}
+          </div>
+          <div style="font-size: 11px; color: var(--color-text-muted);">${plan.durationLabel || `${plan.durationDays} Dias`}</div>
+        </td>
+        <td><strong>${plan.durationDays}</strong> dias</td>
+        <td>
+          <strong style="font-size: var(--font-size-sm); color: var(--color-primary);">${Number(plan.price).toLocaleString("pt-MZ")} MT</strong>
+        </td>
+        <td>
+          ${isFeatured 
+            ? '<span class="status-badge status-badge-active" style="font-size: 11px;">Melhor Oferta</span>' 
+            : '<span style="color: var(--color-text-muted); font-size: 11px;">Normal</span>'}
+        </td>
+        <td>
+          <span style="font-size: 12px; color: var(--color-text-secondary);">${badgeText}</span>
+        </td>
+        <td style="text-align: right; white-space: nowrap;">
+          <button class="btn btn-secondary btn-sm btn-edit-plan" data-id="${plan.id}" style="padding: 4px 8px; margin-right: 4px;" title="Editar Pacote">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+            </svg>
+            Editar
+          </button>
+          <button class="btn btn-ghost btn-sm btn-delete-plan" data-id="${plan.id}" style="color: var(--color-danger); padding: 4px 8px;" title="Apagar Pacote">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+            Apagar
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join("");
+
+  // Conectar botões de ação na tabela
+  tbodyPlans.querySelectorAll(".btn-edit-plan").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const planId = btn.getAttribute("data-id");
+      openEditPlanModal(planId);
+    });
+  });
+
+  tbodyPlans.querySelectorAll(".btn-delete-plan").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const planId = btn.getAttribute("data-id");
+      handleDeletePlan(planId);
+    });
+  });
+}
+
+/**
+ * Abre o modal para criar um novo plano
+ */
+function openCreatePlanModal() {
+  if (!modalAdminPlanForm || !formAdminPlan) return;
+  formAdminPlan.reset();
+
+  document.getElementById("admin-plan-id").value = "";
+  if (modalPlanFormTitle) modalPlanFormTitle.textContent = "Criar Novo Pacote Comercial";
+
+  const featuresTextarea = document.getElementById("admin-plan-features");
+  if (featuresTextarea) {
+    featuresTextarea.value = SHARED_FEATURES.join("\n");
+  }
+
+  openModal(modalAdminPlanForm);
+}
+
+/**
+ * Abre o modal para editar um plano existente
+ */
+function openEditPlanModal(planId) {
+  const plan = allPlans.find(p => p.id === planId);
+  if (!plan || !modalAdminPlanForm) return;
+
+  document.getElementById("admin-plan-id").value = plan.id;
+  document.getElementById("admin-plan-name").value = plan.name || "";
+  document.getElementById("admin-plan-duration").value = plan.durationDays || "";
+  document.getElementById("admin-plan-duration-label").value = plan.durationLabel || "";
+  document.getElementById("admin-plan-price").value = plan.price || "";
+  document.getElementById("admin-plan-badge").value = plan.badge || plan.savings || "";
+  document.getElementById("admin-plan-featured").checked = Boolean(plan.featured);
+
+  const featuresTextarea = document.getElementById("admin-plan-features");
+  if (featuresTextarea) {
+    featuresTextarea.value = (plan.features && plan.features.length > 0 ? plan.features : SHARED_FEATURES).join("\n");
+  }
+
+  if (modalPlanFormTitle) modalPlanFormTitle.textContent = `Editar Pacote: ${plan.name}`;
+  openModal(modalAdminPlanForm);
+}
+
+/**
+ * Submissão de criação/edição de plano
+ */
+async function handleSavePlan(e) {
+  e.preventDefault();
+  const submitBtn = document.getElementById("btn-submit-plan-form");
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = "A gravar pacote...";
+  }
+
+  try {
+    const id = document.getElementById("admin-plan-id").value.trim();
+    const name = document.getElementById("admin-plan-name").value.trim();
+    const durationDays = parseInt(document.getElementById("admin-plan-duration").value, 10);
+    const durationLabel = document.getElementById("admin-plan-duration-label").value.trim() || `${durationDays} Dias`;
+    const price = parseFloat(document.getElementById("admin-plan-price").value);
+    const badge = document.getElementById("admin-plan-badge").value.trim() || null;
+    const featured = document.getElementById("admin-plan-featured").checked;
+    
+    const featuresRaw = document.getElementById("admin-plan-features").value.trim();
+    const features = featuresRaw ? featuresRaw.split("\n").map(f => f.trim()).filter(Boolean) : SHARED_FEATURES;
+
+    await savePlanToFirestore({
+      id: id || `plan-${durationDays}d`,
+      name,
+      durationDays,
+      durationLabel,
+      price,
+      badge,
+      savings: badge,
+      featured,
+      features
+    });
+
+    showToast("Pacote gravado com sucesso!", "success");
+    closeModal(modalAdminPlanForm);
+    await loadDashboardData();
+  } catch (err) {
+    showToast(err.message || "Erro ao gravar pacote.", "danger");
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Gravar Pacote";
+    }
+  }
+}
+
+/**
+ * Exclusão de plano
+ */
+async function handleDeletePlan(planId) {
+  const plan = allPlans.find(p => p.id === planId);
+  const planName = plan ? plan.name : planId;
+
+  if (!confirm(`Tem a certeza de que deseja apagar o pacote "${planName}"? Esta ação removerá o plano da vitrine comercial.`)) {
+    return;
+  }
+
+  try {
+    showToast("A apagar pacote...", "info");
+    await deletePlanFromFirestore(planId);
+    showToast(`Pacote "${planName}" apagado com sucesso.`, "success");
+    await loadDashboardData();
+  } catch (err) {
+    showToast(err.message || "Erro ao apagar pacote.", "danger");
+  }
+}
+
+/**
+ * Sincronização dos planos oficiais padrão
+ */
+async function handleSeedDefaultPlans() {
+  if (!confirm("Deseja sincronizar e gravar os 4 planos oficiais da MEGASON na base de dados?")) {
+    return;
+  }
+
+  try {
+    showToast("A sincronizar pacotes padrão...", "info");
+    await seedOfficialPlansToFirestore();
+    showToast("4 planos oficiais sincronizados com sucesso!", "success");
+    await loadDashboardData();
+  } catch (err) {
+    showToast(err.message || "Erro ao sincronizar planos.", "danger");
+  }
+}
+
+/**
+ * Atualiza as opções do select de planos no formulário de criação de cliente
+ */
+function populateAdminClientPlanOptions() {
+  if (!adminClientPlanSelect) return;
+
+  const currentSelected = adminClientPlanSelect.value;
+  adminClientPlanSelect.innerHTML = allPlans.map(plan => {
+    return `<option value="${plan.id}">${plan.name} — ${Number(plan.price).toLocaleString("pt-MZ")} MT (${plan.durationDays} dias)</option>`;
+  }).join("");
+
+  if (currentSelected && allPlans.some(p => p.id === currentSelected)) {
+    adminClientPlanSelect.value = currentSelected;
+  }
 }
 
 function getStatusBadge(status) {

@@ -17,13 +17,14 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // Validação estrita de valores oficiais dos 4 planos da MEGASON em Meticais (MZN)
+    // Validação estrita de valores oficiais dos planos da MEGASON em Meticais (MZN)
+    // Suporta tanto os 4 planos base quanto planos criados dinamicamente pelo Administrador na coleção /plans
     function isValidPlanPrice(price) {
-      return price in [300, 550, 800, 1000];
+      return price is number && price >= 50 && price <= 50000;
     }
 
     function isValidPlanDuration(days) {
-      return days in [30, 60, 90, 120];
+      return days is number && days >= 1 && days <= 730;
     }
 
     // Configurações públicas: leitura para todos, escrita estrita para Admin

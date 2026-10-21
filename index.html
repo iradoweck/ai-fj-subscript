@@ -64,8 +64,178 @@
 
   <!-- Conteúdo Principal -->
   <main>
-    <!-- Secção Hero (Acolhimento e Persuasão) -->
-    <section id="inicio" class="section section-hero">
+    <!-- Banner de Modo Upgrade (Visível apenas quando o cliente logado navega nos planos para upgrade) -->
+    <div id="upgrade-mode-banner" class="container" style="display: none; margin-top: var(--space-4);">
+      <div style="background: linear-gradient(135deg, #10A37F 0%, #0E7057 100%); color: white; padding: 12px 18px; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; box-shadow: 0 4px 12px rgba(16, 163, 127, 0.2);">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <span style="font-size: var(--font-size-sm); font-weight: var(--font-weight-medium);">
+            <strong>Modo Upgrade / Renovação:</strong> Escolha o novo período desejado para o seu acesso.
+          </span>
+        </div>
+        <button type="button" class="btn btn-sm" id="btn-return-to-dashboard" style="background: white; color: #0E7057; border: none; font-weight: 600; padding: 6px 14px;">
+          ⬅ Voltar à Minha Área
+        </button>
+      </div>
+    </div>
+
+    <!-- Painel Exclusivo do Cliente Logado (Exibido Automaticamente ao Entrar) -->
+    <section id="customer-dashboard-section" class="section" style="display: none; padding-top: var(--space-6);">
+      <div class="container">
+        <!-- Topo da Área do Cliente -->
+        <div class="card" style="margin-bottom: var(--space-6); background: linear-gradient(180deg, var(--color-bg-surface) 0%, var(--color-bg-subtle) 100%); border: 1px solid var(--color-border-subtle);">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--space-4);">
+            <div>
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                <span class="badge badge-active" style="padding: 2px 8px; font-size: 11px;">Área do Cliente</span>
+                <span id="dashboard-province-badge" class="badge badge-secondary" style="padding: 2px 8px; font-size: 11px;">Moçambique</span>
+              </div>
+              <h2 id="dashboard-user-name" style="font-size: var(--font-size-2xl); font-weight: var(--font-weight-bold); margin: 0; color: var(--color-text-primary);">
+                Olá, Cliente!
+              </h2>
+              <p id="dashboard-user-details" style="font-size: var(--font-size-xs); color: var(--color-text-muted); margin: 4px 0 0 0;">
+                WhatsApp: -- • Email: --
+              </p>
+            </div>
+            <div style="display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap;">
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-open-edit-profile" title="Atualizar dados cadastrais e senha">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                Editar Perfil
+              </button>
+              <button type="button" class="btn btn-primary btn-sm" id="btn-dashboard-upgrade" title="Ver opções de upgrade ou renovação">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"></polyline></svg>
+                Mudar de Plano / Upgrade
+              </button>
+              <button type="button" class="btn btn-outline btn-sm" id="btn-dashboard-logout" title="Terminar sessão">
+                Sair
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-2" style="margin-bottom: var(--space-6);">
+          <!-- Card de Subscrição Ativa & Contador Regressivo de Dias -->
+          <div class="card" id="dashboard-sub-card">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: var(--space-3);">
+              <div>
+                <span style="font-size: var(--font-size-xs); text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-text-muted); font-weight: 600;">Sua Subscrição</span>
+                <h3 id="dashboard-plan-name" style="font-size: var(--font-size-xl); font-weight: var(--font-weight-bold); margin: 2px 0 0 0; color: var(--color-primary);">
+                  A carregar subscrição...
+                </h3>
+              </div>
+              <span id="dashboard-status-badge" class="badge badge-pending">Sob Análise</span>
+            </div>
+
+            <!-- Bloco do Contador Regressivo -->
+            <div id="dashboard-countdown-box" style="background: var(--color-bg-subtle); padding: var(--space-4); border-radius: var(--radius-md); border: 1px solid var(--color-border-subtle); margin-bottom: var(--space-4);">
+              <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 6px;">
+                <span style="font-size: var(--font-size-xs); color: var(--color-text-secondary); font-weight: 500;">Tempo Restante de Acesso:</span>
+                <span id="dashboard-days-left-number" style="font-size: var(--font-size-lg); font-weight: 700; color: var(--color-primary);">-- dias</span>
+              </div>
+              <!-- Barra de Progresso Visual -->
+              <div style="width: 100%; height: 8px; background: var(--color-border-subtle); border-radius: var(--radius-full); overflow: hidden; margin-bottom: 8px;">
+                <div id="dashboard-days-progress-bar" style="height: 100%; width: 100%; background: linear-gradient(90deg, #10A37F, #0E7057); border-radius: var(--radius-full); transition: width 0.4s ease;"></div>
+              </div>
+              <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--color-text-muted);">
+                <span id="dashboard-start-date">Início: --/--/----</span>
+                <span id="dashboard-end-date">Expira em: --/--/----</span>
+              </div>
+            </div>
+
+            <!-- Dados da Pasta e Credenciais -->
+            <div id="dashboard-folder-box" style="margin-bottom: var(--space-3);">
+              <label style="font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold); color: var(--color-text-secondary); display: block; margin-bottom: 4px;">Sua Pasta Dedicada no ChatGPT:</label>
+              <div style="display: flex; align-items: center; justify-content: space-between; background: var(--color-bg-surface); border: 1px solid var(--color-border-subtle); padding: 8px 12px; border-radius: var(--radius-md); margin-bottom: var(--space-3);">
+                <span id="dashboard-folder-name" style="font-weight: 600; color: var(--color-primary); font-size: var(--font-size-sm);">Pasta sob configuração</span>
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-copy-folder" style="padding: 2px 8px; font-size: 11px;">Copiar</button>
+              </div>
+
+              <div id="dashboard-credentials-wrap">
+                <label style="font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold); color: var(--color-text-secondary); display: block; margin-bottom: 4px;">Orientações de Acesso:</label>
+                <div id="dashboard-credentials-text" style="background: var(--color-bg-surface); border: 1px solid var(--color-border-subtle); padding: 10px; border-radius: var(--radius-md); font-family: var(--font-family-mono); font-size: var(--font-size-xs); white-space: pre-wrap; margin-bottom: var(--space-3);">As suas instruções serão disponibilizadas aqui assim que a equipa validar o seu comprovativo.</div>
+              </div>
+
+              <!-- Botão Aceder ao ChatGPT -->
+              <a href="https://chatgpt.com" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-block" style="display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                Abrir o ChatGPT Plus Agora
+              </a>
+            </div>
+          </div>
+
+          <!-- Card de Suporte & Informações -->
+          <div class="card" style="display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+              <h3 style="font-size: var(--font-size-base); font-weight: var(--font-weight-bold); margin-bottom: var(--space-2); color: var(--color-text-primary);">
+                Central de Ajuda & Canais Oficiais
+              </h3>
+              <p style="font-size: var(--font-size-xs); color: var(--color-text-muted); line-height: 1.5; margin-bottom: var(--space-4);">
+                A sua subscrição inclui suporte prioritário direto com os operadores da MEGASON para qualquer esclarecimento sobre pastas, renovação ou recursos de IA.
+              </p>
+
+              <div style="display: flex; flex-direction: column; gap: var(--space-2); margin-bottom: var(--space-4);">
+                <div style="display: flex; align-items: center; gap: 8px; font-size: var(--font-size-xs);">
+                  <span class="payment-pill payment-pill-mpesa">M-Pesa</span>
+                  <span>842256366 – FRANCISCO</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px; font-size: var(--font-size-xs);">
+                  <span class="payment-pill payment-pill-emola">E-Mola</span>
+                  <span>861557953 – FRANCISCO</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px; font-size: var(--font-size-xs);">
+                  <span class="payment-pill payment-pill-absa">Absa</span>
+                  <span>Conta: 0708101028295 | NIB: 000207080810102829586</span>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <a href="https://wa.me/258842256366" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-block" style="display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                Falar com Suporte MEGASON
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Histórico de Faturas & Transações -->
+        <div class="card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4);">
+            <h3 style="font-size: var(--font-size-base); font-weight: var(--font-weight-bold); margin: 0; color: var(--color-text-primary);">
+              Histórico de Pagamentos & Faturas
+            </h3>
+            <span id="dashboard-invoices-count" class="badge badge-secondary">0 faturas</span>
+          </div>
+
+          <div class="table-responsive">
+            <table class="data-table" id="dashboard-invoices-table">
+              <thead>
+                <tr>
+                  <th>Fatura</th>
+                  <th>Plano</th>
+                  <th>Valor</th>
+                  <th>Meio de Pagamento</th>
+                  <th>Data</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody id="dashboard-invoices-tbody">
+                <tr>
+                  <td colspan="6" style="text-align: center; color: var(--color-text-muted); padding: var(--space-4);">
+                    Nenhuma fatura encontrada.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Envoltório da Landing Page Pública (Ocultado quando o utilizador faz login) -->
+    <div id="landing-page-content">
+      <!-- Secção Hero (Acolhimento e Persuasão) -->
+      <section id="inicio" class="section section-hero">
       <div class="container">
         <div class="section-title-wrap">
           <span class="badge badge-active" style="margin-bottom: var(--space-3); padding: 6px 14px; font-size: var(--font-size-xs);">
@@ -474,6 +644,8 @@
         </div>
       </div>
     </section>
+  </div>
+  <!-- Fim do #landing-page-content -->
   </main>
 
   <!-- Rodapé Institucional -->
@@ -946,6 +1118,70 @@
           <div class="loading-spinner"></div>
           <span>A carregar dados da sua subscrição...</span>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de Edição de Perfil do Cliente -->
+  <div id="edit-profile-modal" class="modal-backdrop" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="modal-edit-profile-title">
+    <div class="modal-card" style="max-width: 480px;">
+      <div class="modal-header">
+        <div>
+          <h3 id="modal-edit-profile-title" style="font-size: var(--font-size-lg); margin: 0; color: var(--color-text-primary);">
+            Editar Perfil & Acesso
+          </h3>
+          <p style="font-size: var(--font-size-xs); color: var(--color-text-muted); margin-top: 2px;">
+            Mantenha os seus dados de contacto e província atualizados
+          </p>
+        </div>
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-close-edit-profile" aria-label="Fechar janela" style="padding: 4px 8px;">
+          <span class="icon-close-slot"><svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></span>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <form id="form-edit-profile">
+          <div class="form-group">
+            <label for="edit-profile-name" class="form-label">Nome Completo *</label>
+            <input type="text" id="edit-profile-name" class="form-input" required>
+          </div>
+
+          <div class="form-group">
+            <label for="edit-profile-whatsapp" class="form-label">WhatsApp (Vodacom/Movitel/Tmcel) *</label>
+            <input type="tel" id="edit-profile-whatsapp" class="form-input" required placeholder="Ex: 84XXXXXXX">
+          </div>
+
+          <div class="form-group">
+            <label for="edit-profile-province" class="form-label">Província *</label>
+            <select id="edit-profile-province" class="form-select" required>
+              <option value="Maputo Cidade">Maputo Cidade</option>
+              <option value="Maputo Província">Maputo Província</option>
+              <option value="Gaza">Gaza</option>
+              <option value="Inhambane">Inhambane</option>
+              <option value="Sofala">Sofala</option>
+              <option value="Manica">Manica</option>
+              <option value="Tete">Tete</option>
+              <option value="Zambézia">Zambézia</option>
+              <option value="Nampula">Nampula</option>
+              <option value="Cabo Delgado">Cabo Delgado</option>
+              <option value="Niassa">Niassa</option>
+            </select>
+          </div>
+
+          <div style="margin-top: var(--space-4); padding-top: var(--space-3); border-top: 1px solid var(--color-border-subtle);">
+            <label class="form-label" style="display: block; margin-bottom: 4px;">Segurança da Conta</label>
+            <button type="button" class="btn btn-secondary btn-sm btn-block" id="btn-request-password-reset">
+              Enviar Link de Redefinição de Senha para o meu Email
+            </button>
+          </div>
+
+          <div class="modal-footer" style="padding: var(--space-4) 0 0 0; margin-top: var(--space-4); background: none; border-top: none;">
+            <button type="button" class="btn btn-secondary" id="btn-cancel-edit-profile">Cancelar</button>
+            <button type="submit" class="btn btn-primary" id="btn-submit-edit-profile">
+              Guardar Alterações
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   </div>

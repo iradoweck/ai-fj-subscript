@@ -341,3 +341,42 @@ export function subscribeToAuthChanges(callback) {
 
   return () => {};
 }
+
+/**
+ * Atualiza os dados de perfil do cliente autenticado
+ * @param {string} uid 
+ * @param {object} param1 
+ * @returns {Promise<object>}
+ */
+export async function updateUserProfile(uid, { fullName, whatsappNumber, province }) {
+  if (!uid) throw new Error("ID do utilizador é obrigatório.");
+
+  const normalizedPhone = normalizeMozambicanPhone(whatsappNumber);
+  if (!normalizedPhone) {
+    throw new Error("Número de WhatsApp moçambicano inválido. Use um número das operadoras Vodacom, Movitel ou Tmcel (ex: 84XXXXXXX).");
+  }
+  if (province && !MOZAMBIQUE_PROVINCES.includes(province)) {
+    throw new Error("Por favor, selecione uma província válida de Moçambique.");
+  }
+
+  const updates = {
+    updatedAt: isFirebaseConfigured() && db ? serverTimestamp() : new Date().toISOString()
+  };
+  if (fullName && fullName.trim()) updates.fullName = fullName.trim();
+  if (normalizedPhone) updates.whatsappNumber = normalizedPhone;
+  if (province) updates.province = province;
+
+  if (isFirebaseConfigured() && db) {
+    await updateDoc(doc(db, "users", uid), updates);
+    return updates;
+  }
+
+  // Modo Demonstração
+  const stored = localStorage.getItem("megason_demo_user");
+  if (stored) {
+    const user = JSON.parse(stored);
+    Object.assign(user, updates);
+    localStorage.setItem("megason_demo_user", JSON.stringify(user));
+  }
+  return updates;
+}

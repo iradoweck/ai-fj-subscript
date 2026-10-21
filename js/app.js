@@ -10,7 +10,8 @@ import {
   OFFICIAL_PLANS, 
   getPlanById, 
   setSelectedPlan, 
-  getSelectedPlan 
+  getSelectedPlan,
+  fetchDynamicPlans 
 } from "./services/plans.js";
 import {
   registerUser,
@@ -19,7 +20,8 @@ import {
   logoutUser,
   resetPassword,
   subscribeToAuthChanges,
-  normalizeMozambicanPhone
+  normalizeMozambicanPhone,
+  updateUserProfile
 } from "./services/auth.js";
 import {
   createSubscriptionOrder,
@@ -48,10 +50,13 @@ function initApp() {
   checkEnvironment();
   setupSmoothScrolling();
   setupPlanSelection();
+  loadAndRenderDynamicPlans();
   setupCopyButtons();
   setupModalEvents();
   setupAuthModal();
   setupAuthStateListener();
+  setupCustomerDashboard();
+  setupEditProfileModal();
   setupMySubModal();
   setupMobileMenu();
   setupScrollTopProgress();
@@ -149,6 +154,10 @@ function setupSmoothScrolling() {
 function setupPlanSelection() {
   const planButtons = document.querySelectorAll("[data-plan]");
   planButtons.forEach(button => {
+    // Evita duplicar listeners
+    if (button.dataset.boundPlan === "true") return;
+    button.dataset.boundPlan = "true";
+
     button.addEventListener("click", (e) => {
       e.preventDefault();
       const planId = button.getAttribute("data-plan");
@@ -161,6 +170,76 @@ function setupPlanSelection() {
       }
     });
   });
+}
+
+/**
+ * Carrega planos dinâmicos do Firestore e renderiza no grid se houver dados
+ */
+async function loadAndRenderDynamicPlans() {
+  try {
+    const plans = await fetchDynamicPlans();
+    if (!plans || plans.length === 0) return;
+
+    const plansGrid = document.getElementById("plans-grid");
+    if (!plansGrid) return;
+
+    // Ajusta a classe do grid conforme o número de planos
+    if (plans.length === 3) {
+      plansGrid.className = "grid-3";
+    } else {
+      plansGrid.className = "grid-4";
+    }
+
+    plansGrid.innerHTML = plans.map(plan => {
+      const isFeatured = Boolean(plan.featured);
+      const cardClass = isFeatured ? "plan-card featured" : "plan-card";
+      const badgeHtml = plan.badge 
+        ? `<span class="plan-badge-highlight">${plan.badge}</span>` 
+        : (plan.savings ? `<span class="plan-badge-highlight">${plan.savings}</span>` : "");
+      
+      const btnClass = isFeatured ? "btn btn-primary btn-block" : "btn btn-secondary btn-block";
+      const btnText = isFeatured ? `Garantir ${plan.name}` : `Escolher ${plan.name}`;
+      
+      const features = (plan.features && plan.features.length > 0) ? plan.features : [
+        "Modelos avançados (GPT-6 Astra)",
+        "Criação de textos, artigos e ideias",
+        "Geração e edição de imagens",
+        "Leitura e análise de PDFs e ficheiros",
+        "Conversas em tempo real por voz",
+        "Pasta individual e senhas de acesso"
+      ];
+
+      const featuresHtml = features.map(feat => `
+        <li class="plan-feature-item">
+          <span class="plan-feature-check"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span>
+          <span>${feat}</span>
+        </li>
+      `).join("");
+
+      return `
+        <div class="${cardClass}">
+          ${badgeHtml}
+          <div class="plan-header-top">
+            <h3 class="plan-name">${plan.name}</h3>
+          </div>
+          <span class="plan-duration-clean">Válido por ${plan.durationDays} dias de acesso</span>
+          <div class="plan-price-wrap">
+            <span class="plan-price">${Number(plan.price).toLocaleString("pt-MZ")}</span>
+            <span class="plan-currency">MT</span>
+          </div>
+          <ul class="plan-features">
+            ${featuresHtml}
+          </ul>
+          <button type="button" class="${btnClass}" data-plan="${plan.id}">${btnText}</button>
+        </div>
+      `;
+    }).join("");
+
+    // Reconecta eventos de clique aos novos botões gerados dinamicamente
+    setupPlanSelection();
+  } catch (err) {
+    console.warn("Aviso ao carregar planos dinâmicos na vitrine:", err);
+  }
 }
 
 /**
@@ -798,6 +877,7 @@ function setupAuthStateListener() {
   subscribeToAuthChanges((state) => {
     currentAuthState = state;
     updateHeaderAuth(state);
+    renderCustomerDashboardState(state);
 
     // Se o cliente estiver autenticado, pré-preenche o formulário de comprovativo
     if (state.user && state.profile) {
@@ -1177,5 +1257,364 @@ function setupMobileMenu() {
     }
   });
 }
+
+/**
+ * Controla a alternância entre a Landing Page pública e o Dashboard do Cliente
+ */
+function renderCustomerDashboardState(state) {
+  const landingContent = document.getElementById("landing-page-content");
+  const dashboardSection = document.getElementById("customer-dashboard-section");
+  const upgradeBanner = document.getElementById("upgrade-mode-banner");
+
+  if (!state.user) {
+    // Visitante deslogado
+    if (landingContent) landingContent.style.display = "block";
+    if (dashboardSection) dashboardSection.style.display = "none";
+    if (upgradeBanner) upgradeBanner.style.display = "none";
+    return;
+  }
+
+  if (state.isAdmin) {
+    // Administrador autenticado
+    if (landingContent) landingContent.style.display = "block";
+    if (dashboardSection) dashboardSection.style.display = "none";
+    if (upgradeBanner) upgradeBanner.style.display = "none";
+    return;
+  }
+
+  // Cliente comum autenticado: esconde a landing page e exibe a sua área de membro
+  if (landingContent) landingContent.style.display = "none";
+  if (dashboardSection) dashboardSection.style.display = "block";
+  if (upgradeBanner) upgradeBanner.style.display = "none";
+
+  loadCustomerDashboardData(state);
+}
+
+/**
+ * Inicializa os botões e navegação interna do Dashboard do Cliente
+ */
+function setupCustomerDashboard() {
+  const btnUpgrade = document.getElementById("btn-dashboard-upgrade");
+  const btnReturn = document.getElementById("btn-return-to-dashboard");
+  const btnLogout = document.getElementById("btn-dashboard-logout");
+  const btnCopyFolder = document.getElementById("btn-copy-folder");
+
+  const landingContent = document.getElementById("landing-page-content");
+  const dashboardSection = document.getElementById("customer-dashboard-section");
+  const upgradeBanner = document.getElementById("upgrade-mode-banner");
+
+  // Ação de Fazer Upgrade / Mudar de Plano: abre a vitrine de planos
+  if (btnUpgrade) {
+    btnUpgrade.addEventListener("click", () => {
+      if (landingContent) landingContent.style.display = "block";
+      if (dashboardSection) dashboardSection.style.display = "none";
+      if (upgradeBanner) upgradeBanner.style.display = "block";
+      const planosSec = document.getElementById("planos");
+      if (planosSec) planosSec.scrollIntoView({ behavior: "smooth" });
+    });
+  }
+
+  // Voltar ao Painel do Cliente a partir do banner de upgrade
+  if (btnReturn) {
+    btnReturn.addEventListener("click", () => {
+      if (landingContent) landingContent.style.display = "none";
+      if (dashboardSection) dashboardSection.style.display = "block";
+      if (upgradeBanner) upgradeBanner.style.display = "none";
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+  }
+
+  // Logout direto do dashboard
+  if (btnLogout) {
+    btnLogout.addEventListener("click", async () => {
+      await logoutUser();
+      location.reload();
+    });
+  }
+
+  // Copiar nome da pasta
+  if (btnCopyFolder) {
+    btnCopyFolder.addEventListener("click", () => {
+      const folderEl = document.getElementById("dashboard-folder-name");
+      if (folderEl && folderEl.textContent) {
+        navigator.clipboard.writeText(folderEl.textContent)
+          .then(() => {
+            btnCopyFolder.textContent = "Copiado!";
+            setTimeout(() => { btnCopyFolder.textContent = "Copiar"; }, 2000);
+          })
+          .catch(() => {});
+      }
+    });
+  }
+}
+
+/**
+ * Carrega e renderiza dinamicamente as subscrições, contador regressivo e faturas do cliente
+ */
+async function loadCustomerDashboardData(state) {
+  if (!state.user) return;
+
+  const profile = state.profile || {};
+  const nameEl = document.getElementById("dashboard-user-name");
+  const detailsEl = document.getElementById("dashboard-user-details");
+  const provinceBadge = document.getElementById("dashboard-province-badge");
+
+  if (nameEl) nameEl.textContent = `Olá, ${profile.fullName || "Cliente"}!`;
+  if (detailsEl) {
+    detailsEl.textContent = `WhatsApp: ${profile.whatsappNumber || "--"} • Email: ${profile.email || state.user.email || "--"}`;
+  }
+  if (provinceBadge) {
+    provinceBadge.textContent = profile.province || "Moçambique";
+  }
+
+  const planNameEl = document.getElementById("dashboard-plan-name");
+  const statusBadge = document.getElementById("dashboard-status-badge");
+  const daysLeftEl = document.getElementById("dashboard-days-left-number");
+  const progressBar = document.getElementById("dashboard-days-progress-bar");
+  const startDateEl = document.getElementById("dashboard-start-date");
+  const endDateEl = document.getElementById("dashboard-end-date");
+  const folderNameEl = document.getElementById("dashboard-folder-name");
+  const credentialsTextEl = document.getElementById("dashboard-credentials-text");
+  const invoicesTbody = document.getElementById("dashboard-invoices-tbody");
+  const invoicesCount = document.getElementById("dashboard-invoices-count");
+
+  try {
+    const subs = await getUserSubscriptions(state.user.uid);
+    const invoices = await getUserInvoices(state.user.uid);
+
+    if (subs && subs.length > 0) {
+      const activeSub = subs[0];
+      if (planNameEl) planNameEl.textContent = `Plano ${activeSub.planName || "ChatGPT Plus"}`;
+
+      const statusMap = {
+        active: { text: "Subscrição Ativa", class: "badge-active" },
+        pending: { text: "Sob Conferência", class: "badge-pending" },
+        suspended: { text: "Suspensa", class: "badge-suspended" },
+        expired: { text: "Expirada", class: "badge-expired" },
+        cancelled: { text: "Cancelada", class: "badge-cancelled" }
+      };
+
+      const info = statusMap[activeSub.status] || { text: activeSub.status, class: "badge-pending" };
+      if (statusBadge) {
+        statusBadge.textContent = info.text;
+        statusBadge.className = `badge ${info.class}`;
+      }
+
+      // Cálculo de dias restantes
+      if (activeSub.status === "active" && activeSub.endDate) {
+        const endMs = new Date(activeSub.endDate).getTime();
+        const nowMs = Date.now();
+        const daysLeft = Math.max(0, Math.ceil((endMs - nowMs) / (1000 * 60 * 60 * 24)));
+        const totalDays = Number(activeSub.durationDays) || 30;
+        const progressPct = Math.min(100, Math.max(0, Math.round((daysLeft / totalDays) * 100)));
+
+        if (daysLeftEl) {
+          daysLeftEl.textContent = `${daysLeft} dia${daysLeft === 1 ? "" : "s"} restante${daysLeft === 1 ? "" : "s"}`;
+          daysLeftEl.style.color = daysLeft <= 3 ? "var(--color-danger)" : "var(--color-primary)";
+        }
+        if (progressBar) {
+          progressBar.style.width = `${progressPct}%`;
+          if (daysLeft <= 3) {
+            progressBar.style.background = "var(--color-danger)";
+          }
+        }
+        if (startDateEl && activeSub.startDate) {
+          const dStart = new Date(activeSub.startDate);
+          startDateEl.textContent = `Início: ${dStart.toLocaleDateString("pt-MZ")}`;
+        }
+        if (endDateEl && activeSub.endDate) {
+          const dEnd = new Date(activeSub.endDate);
+          endDateEl.textContent = `Expira em: ${dEnd.toLocaleDateString("pt-MZ")}`;
+        }
+      } else if (activeSub.status === "pending") {
+        if (daysLeftEl) daysLeftEl.textContent = "Aguardando aprovação";
+        if (progressBar) progressBar.style.width = "100%";
+        if (startDateEl) startDateEl.textContent = "Aguardando conferência do SMS";
+        if (endDateEl) endDateEl.textContent = `Duração: ${activeSub.durationDays || 30} dias após aprovação`;
+      } else {
+        if (daysLeftEl) daysLeftEl.textContent = "0 dias";
+        if (progressBar) progressBar.style.width = "0%";
+      }
+
+      // Pasta e credenciais
+      if (folderNameEl) {
+        folderNameEl.textContent = activeSub.folderName || `MEGASON - ${profile.fullName || "Minha Pasta"}`;
+      }
+      if (credentialsTextEl) {
+        credentialsTextEl.textContent = activeSub.accessCredentials || 
+          "As instruções e credenciais exclusivas serão disponibilizadas aqui e no seu WhatsApp assim que o operador validar a sua transferência.";
+      }
+    } else {
+      if (planNameEl) planNameEl.textContent = "Nenhuma subscrição ativa";
+      if (statusBadge) {
+        statusBadge.textContent = "Sem Plano";
+        statusBadge.className = "badge badge-pending";
+      }
+      if (daysLeftEl) daysLeftEl.textContent = "0 dias";
+      if (folderNameEl) folderNameEl.textContent = "Nenhuma pasta vinculada";
+    }
+
+    // Histórico de Faturas
+    if (invoicesTbody) {
+      if (invoices && invoices.length > 0) {
+        if (invoicesCount) invoicesCount.textContent = `${invoices.length} fatura${invoices.length === 1 ? "" : "s"}`;
+        invoicesTbody.innerHTML = invoices.map(inv => {
+          const invStatusLabels = {
+            pending: { text: "Pendente", class: "badge-pending" },
+            paid: { text: "Paga", class: "badge-paid" },
+            rejected: { text: "Cancelada", class: "badge-cancelled" }
+          };
+          const b = invStatusLabels[inv.status] || { text: inv.status, class: "badge-pending" };
+
+          // Cor e ícone do meio de pagamento
+          let methodBadgeClass = "payment-pill";
+          const methodLower = (inv.paymentMethod || "").toLowerCase();
+          if (methodLower.includes("m-pesa")) methodBadgeClass += " payment-pill-mpesa";
+          else if (methodLower.includes("e-mola")) methodBadgeClass += " payment-pill-emola";
+          else if (methodLower.includes("absa")) methodBadgeClass += " payment-pill-absa";
+
+          const invDate = inv.createdAt?.toDate ? inv.createdAt.toDate() : (inv.createdAt ? new Date(inv.createdAt) : new Date());
+
+          return `
+            <tr>
+              <td><span style="font-family: var(--font-family-mono); font-size: 11px; font-weight: 600;">#${inv.id.slice(0, 8)}</span></td>
+              <td>${inv.planName || "ChatGPT Plus"}</td>
+              <td><strong style="color: var(--color-primary);">${inv.amount} MT</strong></td>
+              <td><span class="${methodBadgeClass}" style="font-size: 11px; padding: 2px 8px;">${inv.paymentMethod || "M-Pesa"}</span></td>
+              <td style="font-size: 11px; color: var(--color-text-muted);">${invDate.toLocaleDateString("pt-MZ")}</td>
+              <td><span class="badge ${b.class}">${b.text}</span></td>
+            </tr>
+          `;
+        }).join("");
+      } else {
+        if (invoicesCount) invoicesCount.textContent = "0 faturas";
+        invoicesTbody.innerHTML = `
+          <tr>
+            <td colspan="6" style="text-align: center; color: var(--color-text-muted); padding: var(--space-4);">
+              Nenhuma transação registrada.
+            </td>
+          </tr>
+        `;
+      }
+    }
+
+  } catch (err) {
+    console.error("Erro ao carregar dados do dashboard do cliente:", err);
+  }
+}
+
+/**
+ * Gerencia a abertura e submissão do modal de edição de perfil do cliente
+ */
+function setupEditProfileModal() {
+  const modal = document.getElementById("edit-profile-modal");
+  const btnOpen = document.getElementById("btn-open-edit-profile");
+  const btnClose = document.getElementById("btn-close-edit-profile");
+  const btnCancel = document.getElementById("btn-cancel-edit-profile");
+  const form = document.getElementById("form-edit-profile");
+  const btnResetPass = document.getElementById("btn-request-password-reset");
+
+  const nameInput = document.getElementById("edit-profile-name");
+  const phoneInput = document.getElementById("edit-profile-whatsapp");
+  const provinceSelect = document.getElementById("edit-profile-province");
+
+  function openModal() {
+    if (!modal) return;
+    const profile = currentAuthState.profile || {};
+    if (nameInput) nameInput.value = profile.fullName || "";
+    if (phoneInput) phoneInput.value = profile.whatsappNumber || "";
+    if (provinceSelect && profile.province) provinceSelect.value = profile.province;
+
+    modal.style.display = "flex";
+    document.body.style.overflow = "hidden";
+  }
+
+  function closeModal() {
+    if (modal) {
+      modal.style.display = "none";
+      document.body.style.overflow = "";
+    }
+  }
+
+  if (btnOpen) btnOpen.addEventListener("click", openModal);
+  if (btnClose) btnClose.addEventListener("click", closeModal);
+  if (btnCancel) btnCancel.addEventListener("click", closeModal);
+
+  if (modal) {
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal) closeModal();
+    });
+  }
+
+  // Redefinição de senha
+  if (btnResetPass) {
+    btnResetPass.addEventListener("click", async () => {
+      const email = currentAuthState.user?.email;
+      if (!email) {
+        alert("Email do utilizador não identificado.");
+        return;
+      }
+      try {
+        btnResetPass.disabled = true;
+        btnResetPass.textContent = "A enviar email...";
+        await resetPassword(email);
+        alert(`Enviámos um email de recuperação para ${email}. Verifique a sua caixa de entrada e spam para criar a nova senha.`);
+      } catch (err) {
+        alert(err.message || "Erro ao solicitar recuperação de senha.");
+      } finally {
+        btnResetPass.disabled = false;
+        btnResetPass.textContent = "Enviar Link de Redefinição de Senha para o meu Email";
+      }
+    });
+  }
+
+  // Submissão de atualização do perfil
+  if (form) {
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const submitBtn = document.getElementById("btn-submit-edit-profile");
+      const fullName = nameInput?.value.trim();
+      const whatsappNumber = phoneInput?.value.trim();
+      const province = provinceSelect?.value;
+
+      if (!fullName || !whatsappNumber || !province) {
+        alert("Preencha todos os campos obrigatórios.");
+        return;
+      }
+
+      try {
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.textContent = "A guardar...";
+        }
+
+        await updateUserProfile(currentAuthState.user.uid, {
+          fullName,
+          whatsappNumber,
+          province
+        });
+
+        if (currentAuthState.profile) {
+          currentAuthState.profile.fullName = fullName;
+          currentAuthState.profile.whatsappNumber = whatsappNumber;
+          currentAuthState.profile.province = province;
+        }
+
+        closeModal();
+        alert("Dados de perfil atualizados com sucesso!");
+        loadCustomerDashboardData(currentAuthState);
+
+      } catch (err) {
+        alert(err.message || "Erro ao atualizar dados.");
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Guardar Alterações";
+        }
+      }
+    });
+  }
+}
+
 
 
