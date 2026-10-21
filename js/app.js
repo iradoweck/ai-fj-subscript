@@ -404,7 +404,7 @@ function setupModalEvents() {
           proofText
         });
 
-        // Atualiza mensagem no Passo 3 com o ID da fatura gerada
+        // Atualiza mensagem no Passo 3 com o ID da fatura gerada e prepara o link wa.me
         const step3 = document.getElementById("checkout-step-3");
         if (step3 && result.invoice) {
           const infoP = step3.querySelector("p");
@@ -414,6 +414,32 @@ function setupModalEvents() {
               A sua fatura gerada é a <strong>#${result.invoice.id}</strong>.<br><br>
               A equipa da <strong>MEGASON</strong> já está a validar a transação e ativará as suas senhas e a sua pasta exclusiva no seu WhatsApp em instantes!
             `;
+          }
+
+          // Prepara URL formatada do WhatsApp com comprovativo anexado
+          const whatsappBtn = document.getElementById("btn-checkout-whatsapp");
+          if (whatsappBtn) {
+            const planTitle = plan ? `${plan.name} (${plan.price} MT)` : "ChatGPT Plus";
+            const whatsappText = `Olá MEGASON! Acabei de submeter o pedido de subscrição na plataforma.
+👤 *Cliente:* ${name}
+📱 *WhatsApp:* ${whatsapp}
+💳 *Plano:* ${planTitle}
+📄 *Fatura:* #${result.invoice.id}
+
+📝 *Comprovativo de Transferência:*
+${proofText}
+
+Aguardo a ativação da minha pasta exclusiva e senhas de acesso ao ChatGPT Plus. Obrigado!`;
+
+            const waUrl = `https://wa.me/258842256366?text=${encodeURIComponent(whatsappText)}`;
+            whatsappBtn.href = waUrl;
+            
+            // Tentativa suave de abertura imediata em nova aba
+            try {
+              window.open(waUrl, "_blank", "noopener,noreferrer");
+            } catch {
+              // Navegador bloqueou popup automático, botão na tela permanece ativo
+            }
           }
         }
 

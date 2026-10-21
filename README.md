@@ -27,7 +27,7 @@ O sistema opera com verificação e aprovação 100% manual por parte do operado
 ### 1.2. Canais Oficiais de Pagamento em Moçambique
 - **M-Pesa:** `842256366` – FRANCISCO
 - **E-Mola:** `861557953` – FRANCISCO
-- **Absa Bank Moçambique:** Conta `0708101028295`
+- **Absa Bank Moçambique:** Conta `0708101028295` | NIB `000207080810102829586` – FRANCISCO
 - **Regra de Comprovativo:** O cliente submete a confirmação exclusivamente em formato de **TEXTO PURO** (copiando e colando a mensagem SMS da carteira móvel ou comprovativo bancário). É proibido o upload de imagens, PDFs ou vídeos, mantendo a infraestrutura leve e sem custos de armazenamento.
 
 ---

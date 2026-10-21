@@ -26,7 +26,7 @@ Aplicação web estática para a **MEGASON** apresentar e comercializar subscri�
 ### 1.2. Métodos Oficiais de Pagamento
 - **M-Pesa:** `842256366 – FRANCISCO`
 - **E-Mola:** `861557953 – FRANCISCO`
-- **Absa Bank:** `Conta 0708101028295`
+- **Absa Bank:** `Conta 0708101028295` | `NIB 000207080810102829586` – FRANCISCO
 - **Regra Mandatória de Comprovativo:** O cliente deve submeter o comprovativo exclusivamente em formato **TEXTO** (copiando e colando a mensagem SMS da carteira móvel ou comprovante bancário). Upload de imagens, PDFs ou vídeos é proibido e fora do escopo.
 
 ### 1.3. Dados Cadastrais do Utilizador

@@ -64,6 +64,64 @@
   gap: 6px;
 }
 
+/* Cores Oficiais dos Métodos de Pagamento em Moçambique */
+.payment-pill-mpesa {
+  background-color: #FEF2F2;
+  color: #DC2626;
+  border-color: #FECACA;
+}
+.payment-pill-mpesa::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #E60000;
+}
+
+.payment-pill-emola {
+  background-color: #FFF7ED;
+  color: #C2410C;
+  border-color: #FED7AA;
+}
+.payment-pill-emola::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #FF6600;
+}
+
+.payment-pill-absa {
+  background-color: #FFF1F2;
+  color: #BE123C;
+  border-color: #FECDD3;
+}
+.payment-pill-absa::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #DC0032;
+}
+
+.payment-method-item-mpesa {
+  border-left: 3px solid #E60000;
+  padding-left: 10px !important;
+}
+
+.payment-method-item-emola {
+  border-left: 3px solid #FF6600;
+  padding-left: 10px !important;
+}
+
+.payment-method-item-absa {
+  border-left: 3px solid #DC0032;
+  padding-left: 10px !important;
+}
+
 /* FAQ Items */
 .faq-grid {
   display: grid;
