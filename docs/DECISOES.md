@@ -43,6 +43,10 @@
 - **Decisão:** O cadastro de utilizadores exige campos contextuais de Moçambique: as 11 províncias canónicas em select, validação de números de WhatsApp com operadoras nacionais (Vodacom 84/85, Movitel 86/87, Tmcel 82/83) e verificação anti-bot explícita. O papel `role: "customer"` é forçado na criação de qualquer conta pelo cliente; a promoção para `admin` só pode ser realizada diretamente na consola do Cloud Firestore ou por outro administrador autenticado via regras de segurança.
 - **Justificação:** Previne fraudes, garante que os acessos ao ChatGPT Plus sejam entregues no canal móvel correto (WhatsApp) e impede ataques de auto-elevação de privilégios.
 
+### ADR 008: Restrição de Criação de Contas ao Funil de Comprovativo e Criação Administrativa
+- **Decisão:** O utilizador final não pode criar contas avulsas livremente na aplicação sem selecionar um plano e anexar o comprovativo SMS de pagamento. O modal de autenticação pública disponibiliza apenas Login e Recuperação de Senha, além de uma consulta de correspondência (*match*) por WhatsApp ou Email para permitir que clientes que já efetuaram uma transferência prévia finalizem a sua senha. Adicionalmente, o Administrador passa a ter a faculdade exclusiva de cadastrar novos clientes manualmente pelo Painel Administrativo, atribuindo planos com liberação imediata de pastas e credenciais.
+- **Justificação:** Elimina cadastros ociosos e spam de contas sem intenção de compra, blinda o funil de conversão transacional e confere à equipa da MEGASON a flexibilidade operacional de registar clientes atendidos presencialmente ou por canais diretos (WhatsApp).
+
 ---
 
 ## 3. Mapeamento de Ferramentas, Agentes e Skills do Antigravity

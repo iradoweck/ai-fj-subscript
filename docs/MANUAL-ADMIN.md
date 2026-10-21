@@ -55,6 +55,16 @@ Na aba **"Subscrições & Pedidos"**, o operador tem à disposição:
 | **Reativar** | Quando a situação da conta suspensa for regularizada. | Devolve o status `Ativa` à subscrição. |
 | **Recusar / Rejeitar (✕)** | Comprovativo falso, SMS inexistente no extrato ou valor incorreto. | Marca o pedido e a fatura vinculada como `Cancelada`, registando o motivo para fins de auditoria. |
 
+### 3.1. Cadastramento Direto de Cliente pelo Administrador (+ Novo Cliente & Plano)
+Para clientes atendidos diretamente no balcão ou via WhatsApp que efetuam o pagamento por outros meios ou necessitam de atendimento assistido:
+1. Clique no botão **`+ Novo Cliente & Plano`** no topo do painel.
+2. Preencha os dados do cliente: Nome, Email, WhatsApp e Província.
+3. Clique em **`Gerar`** para obter uma senha temporária segura ou digite uma senha específica.
+4. Selecione o plano adquirido (30, 60, 90 ou 120 dias) e o meio de pagamento (M-Pesa, E-Mola, Absa ou Dinheiro).
+5. O sistema sugere automaticamente o nome da pasta (ex: `MEGASON - [Nome]`). Preencha as credenciais e orientações de acesso.
+6. Mantenha a opção *"Ativar subscrição e marcar fatura como PAGA imediatamente"* selecionada.
+7. Ao submeter, o sistema cria o cliente, a subscrição e a fatura, e abre uma janela com a **mensagem pronta formatada para o WhatsApp** com todas as instruções para copiar em 1 clique e enviar ao cliente.
+
 ---
 
 ## 4. Indicadores Financeiros e Auditoria

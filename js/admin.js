@@ -17,7 +17,8 @@ import {
   suspendSubscription,
   reactivateSubscription,
   cancelSubscriptionOrder,
-  getFinancialMetrics
+  getFinancialMetrics,
+  adminCreateCustomerWithSubscription
 } from "./services/subscriptions.js";
 
 // Estado da Aplicação Administrativa
@@ -68,12 +69,21 @@ const modalApproveOrder = document.getElementById("modal-approve-order");
 const modalSuspendOrder = document.getElementById("modal-suspend-order");
 const modalCancelOrder = document.getElementById("modal-cancel-order");
 const modalAdminLogin = document.getElementById("modal-admin-login");
+const modalAdminCreateClient = document.getElementById("modal-admin-create-client");
+const modalAdminClientCreatedSuccess = document.getElementById("modal-admin-client-created-success");
+
+// Botão de Criar Cliente
+const btnAdminOpenCreateClient = document.getElementById("btn-admin-open-create-client");
+const btnAdminGenPassword = document.getElementById("btn-admin-gen-password");
+const btnCopyWhatsappCreds = document.getElementById("btn-copy-whatsapp-creds");
+const adminSuccessWhatsappMessage = document.getElementById("admin-success-whatsapp-message");
 
 // Formulários
 const formApproveOrder = document.getElementById("form-approve-order");
 const formSuspendOrder = document.getElementById("form-suspend-order");
 const formCancelOrder = document.getElementById("form-cancel-order");
 const formAdminLogin = document.getElementById("form-admin-login");
+const formAdminCreateClient = document.getElementById("form-admin-create-client");
 
 // Container de Toasts
 const toastContainer = document.getElementById("toast-container");
@@ -209,6 +219,44 @@ function setupEventListeners() {
   // Submissão do Formulário de Cancelamento / Rejeição
   formCancelOrder?.addEventListener("submit", handleCancelOrder);
 
+  // Abertura do Modal de Novo Cliente & Plano
+  btnAdminOpenCreateClient?.addEventListener("click", () => {
+    openAdminCreateClientModal();
+  });
+
+  // Gerador de Senha Inicial
+  btnAdminGenPassword?.addEventListener("click", () => {
+    const passwordInput = document.getElementById("admin-client-password");
+    if (passwordInput) {
+      const generated = generateSecureTempPassword();
+      passwordInput.value = generated;
+      showToast("Senha segura gerada!", "info");
+    }
+  });
+
+  // Auto-sugestão de Nome de Pasta ao digitar o Nome do Cliente
+  document.getElementById("admin-client-name")?.addEventListener("input", (e) => {
+    const folderInput = document.getElementById("admin-client-folder");
+    const nameVal = e.target.value.trim();
+    if (folderInput && nameVal) {
+      const firstName = nameVal.split(" ")[0];
+      folderInput.value = `MEGASON - ${firstName}`;
+    }
+  });
+
+  // Submissão do Cadastro de Cliente pelo Administrador
+  formAdminCreateClient?.addEventListener("submit", handleAdminCreateClient);
+
+  // Cópia da Mensagem do WhatsApp
+  btnCopyWhatsappCreds?.addEventListener("click", () => {
+    if (adminSuccessWhatsappMessage) {
+      adminSuccessWhatsappMessage.select();
+      navigator.clipboard.writeText(adminSuccessWhatsappMessage.value)
+        .then(() => showToast("Mensagem copiada para a área de transferência!", "success"))
+        .catch(() => showToast("Erro ao copiar mensagem.", "warning"));
+    }
+  });
+
   // Fechamento de Modais pelos botões [data-close]
   document.querySelectorAll("[data-close]").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -219,7 +267,7 @@ function setupEventListeners() {
   });
 
   // Fechamento pelo backdrop
-  [modalOrderDetails, modalApproveOrder, modalSuspendOrder, modalCancelOrder, modalAdminLogin].forEach(modal => {
+  [modalOrderDetails, modalApproveOrder, modalSuspendOrder, modalCancelOrder, modalAdminLogin, modalAdminCreateClient, modalAdminClientCreatedSuccess].forEach(modal => {
     if (!modal) return;
     modal.addEventListener("click", (e) => {
       if (e.target === modal) closeModal(modal);
@@ -702,6 +750,121 @@ async function handleCancelOrder(e) {
 }
 
 /**
+ * Abre o modal de cadastro administrativo de cliente e atribuição de plano
+ */
+function openAdminCreateClientModal() {
+  if (formAdminCreateClient) formAdminCreateClient.reset();
+
+  const passwordInput = document.getElementById("admin-client-password");
+  if (passwordInput) passwordInput.value = generateSecureTempPassword();
+
+  const credentialsInput = document.getElementById("admin-client-credentials");
+  if (credentialsInput) {
+    credentialsInput.value = `Instruções ChatGPT Plus:
+1. Faça login na conta de equipa com o email oficial fornecido.
+2. Selecione a sua pasta dedicada na barra lateral para isolar todas as suas conversas.
+3. Não altere as credenciais mestras da conta.`;
+  }
+
+  const markPaidCheckbox = document.getElementById("admin-client-mark-paid");
+  if (markPaidCheckbox) markPaidCheckbox.checked = true;
+
+  openModal(modalAdminCreateClient);
+}
+
+/**
+ * Gera uma senha temporária segura para o cliente
+ */
+function generateSecureTempPassword() {
+  const chars = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  let pass = "Mg@";
+  for (let i = 0; i < 5; i++) {
+    pass += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return pass + "26";
+}
+
+/**
+ * Handler de criação de cliente e atribuição direta de plano pelo Administrador
+ */
+async function handleAdminCreateClient(e) {
+  e.preventDefault();
+  const submitBtn = document.getElementById("btn-submit-create-client");
+
+  const fullName = document.getElementById("admin-client-name")?.value.trim();
+  const email = document.getElementById("admin-client-email")?.value.trim();
+  const whatsappNumber = document.getElementById("admin-client-whatsapp")?.value.trim();
+  const province = document.getElementById("admin-client-province")?.value || "Maputo Cidade";
+  const password = document.getElementById("admin-client-password")?.value;
+
+  const planId = document.getElementById("admin-client-plan")?.value;
+  const paymentMethod = document.getElementById("admin-client-payment-method")?.value;
+  const folderName = document.getElementById("admin-client-folder")?.value.trim();
+  const accessCredentials = document.getElementById("admin-client-credentials")?.value.trim();
+  const markAsPaid = document.getElementById("admin-client-mark-paid")?.checked;
+  const adminNotes = document.getElementById("admin-client-notes")?.value.trim();
+
+  submitBtn.disabled = true;
+  submitBtn.textContent = "A registar cliente e plano...";
+
+  try {
+    const result = await adminCreateCustomerWithSubscription({
+      fullName,
+      email,
+      password,
+      whatsappNumber,
+      province,
+      planId,
+      folderName,
+      accessCredentials,
+      paymentMethod,
+      markAsPaid,
+      adminNotes,
+      adminUid: currentAdmin ? currentAdmin.uid : "admin"
+    });
+
+    showToast("Cliente e plano criados com sucesso!", "success");
+    closeModal(modalAdminCreateClient);
+
+    // Formata mensagem para WhatsApp pronta para copiar
+    const planName = result.subscription.planName || "ChatGPT Plus";
+    const planPrice = result.subscription.price || 0;
+    const whatsappMsg = `*MEGASON — Acesso Ativado ChatGPT Plus*
+Olá, ${fullName}! O seu acesso ao ChatGPT Plus foi criado e ativado com sucesso pela nossa equipa.
+
+📋 *Detalhes da Subscrição:*
+• *Plano:* ${planName} (${result.subscription.durationDays || 30} dias)
+• *Valor:* ${planPrice.toLocaleString("pt-MZ")} MT
+• *Pasta Exclusiva:* ${result.subscription.folderName || folderName}
+• *Estado:* ${markAsPaid ? "Ativo e Confirmado" : "Aguardando Pagamento"}
+
+🔑 *Credenciais / Instruções de Acesso:*
+${accessCredentials}
+
+🌐 *Painel do Cliente MEGASON:*
+Poderá consultar a sua subscrição e faturas no nosso site:
+• *Site:* https://ai.admin-megason.com
+• *Email:* ${email}
+• *Senha Temporária:* ${password}
+
+_Nota: Recomendamos que altere a sua senha no primeiro acesso caso deseje._
+Obrigado por escolher a MEGASON!`;
+
+    if (adminSuccessWhatsappMessage) {
+      adminSuccessWhatsappMessage.value = whatsappMsg;
+    }
+
+    openModal(modalAdminClientCreatedSuccess);
+    await loadDashboardData();
+  } catch (err) {
+    showToast(err.message || "Erro ao criar cliente.", "danger");
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Cadastrar Cliente e Liberar Acesso";
+  }
+}
+
+/**
  * Funções Auxiliares de UI e Modais
  */
 function openModal(modal) {
@@ -713,7 +876,15 @@ function closeModal(modal) {
 }
 
 function closeAllModals() {
-  [modalOrderDetails, modalApproveOrder, modalSuspendOrder, modalCancelOrder, modalAdminLogin].forEach(closeModal);
+  [
+    modalOrderDetails, 
+    modalApproveOrder, 
+    modalSuspendOrder, 
+    modalCancelOrder, 
+    modalAdminLogin,
+    modalAdminCreateClient,
+    modalAdminClientCreatedSuccess
+  ].forEach(closeModal);
 }
 
 function getStatusBadge(status) {
