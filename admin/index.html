@@ -497,6 +497,29 @@
             Ao aprovar, a fatura será marcada como <strong>Paga</strong> e o cliente terá acesso imediato à pasta informada abaixo na área de cliente.
           </div>
 
+          <!-- Resumo das Datas e Vigência Calculada -->
+          <div id="approve-dates-summary" style="background-color: var(--color-bg-subtle); border: 1px solid var(--color-border-subtle); border-radius: var(--radius-md); padding: var(--space-3); font-size: var(--font-size-xs);">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+              <span style="color: var(--color-text-secondary);">Plano & Duração:</span>
+              <strong id="approve-plan-summary" style="color: var(--color-primary);">-</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+              <span style="color: var(--color-text-secondary);">Data do Pedido (Inscrição):</span>
+              <span id="approve-date-created" style="font-family: monospace;">-</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+              <span style="color: var(--color-text-secondary);">Data de Aprovação:</span>
+              <strong id="approve-date-approval" style="color: var(--color-text-primary);">Hoje</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+              <span style="color: var(--color-text-secondary);">Nova Data de Término:</span>
+              <strong id="approve-date-end" style="color: var(--color-primary); font-size: 13px;">-</strong>
+            </div>
+            <div id="approve-extension-note" style="display: none; margin-top: 6px; padding: 4px 8px; background: #FEF3C7; border: 1px solid #FCD34D; border-radius: 4px; font-size: 11px; color: #92400E;">
+              <strong>Extensão de Vigência:</strong> Os dias do plano serão somados ao término remanescente atual.
+            </div>
+          </div>
+
           <!-- Nome da Pasta ChatGPT Plus -->
           <div>
             <label for="approve-folder-name" class="form-label" style="font-size: var(--font-size-xs);">Nome da Pasta ChatGPT Plus atribuída: *</label>

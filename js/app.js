@@ -27,7 +27,8 @@ import {
   createSubscriptionOrder,
   getUserSubscriptions,
   getUserInvoices,
-  findOrderByContact
+  findOrderByContact,
+  listenToUserSubscription
 } from "./services/subscriptions.js";
 
 // Estado global de autenticação em memória
@@ -870,14 +871,28 @@ function setupAuthModal() {
   window.__openAuthModal = openAuth;
 }
 
+let activeUserSubUnsubscribe = null;
+
 /**
- * Observa alterações de sessão e atualiza a barra superior em tempo real
+ * Observa alterações de sessão e atualiza a barra superior e o dashboard em tempo real
  */
 function setupAuthStateListener() {
   subscribeToAuthChanges((state) => {
     currentAuthState = state;
     updateHeaderAuth(state);
     renderCustomerDashboardState(state);
+
+    // Gerencia o listener de subscrições em tempo real do utilizador autenticado
+    if (activeUserSubUnsubscribe) {
+      activeUserSubUnsubscribe();
+      activeUserSubUnsubscribe = null;
+    }
+
+    if (state.user) {
+      activeUserSubUnsubscribe = listenToUserSubscription(state.user.uid, () => {
+        loadCustomerDashboardData(currentAuthState);
+      });
+    }
 
     // Se o cliente estiver autenticado, pré-preenche o formulário de comprovativo
     if (state.user && state.profile) {
@@ -1403,12 +1418,22 @@ async function loadCustomerDashboardData(state) {
   const statusBadge = document.getElementById("dashboard-status-badge");
   const daysLeftEl = document.getElementById("dashboard-days-left-number");
   const progressBar = document.getElementById("dashboard-days-progress-bar");
+  const createdDateEl = document.getElementById("dashboard-created-date");
   const startDateEl = document.getElementById("dashboard-start-date");
   const endDateEl = document.getElementById("dashboard-end-date");
+  const renewalNoticeEl = document.getElementById("dashboard-renewal-notice");
+  const btnQuickRenew = document.getElementById("btn-quick-renew");
   const folderNameEl = document.getElementById("dashboard-folder-name");
   const credentialsTextEl = document.getElementById("dashboard-credentials-text");
   const invoicesTbody = document.getElementById("dashboard-invoices-tbody");
   const invoicesCount = document.getElementById("dashboard-invoices-count");
+
+  if (btnQuickRenew) {
+    btnQuickRenew.onclick = () => {
+      const btnUpgrade = document.getElementById("btn-dashboard-upgrade");
+      if (btnUpgrade) btnUpgrade.click();
+    };
+  }
 
   try {
     const subs = await getUserSubscriptions(state.user.uid);
@@ -1432,7 +1457,25 @@ async function loadCustomerDashboardData(state) {
         statusBadge.className = `badge ${info.class}`;
       }
 
-      // Cálculo de dias restantes
+      // 1. Data de Inscrição / Pedido
+      if (createdDateEl) {
+        const dCreated = activeSub.createdAt?.toDate ? activeSub.createdAt.toDate() : (activeSub.createdAt ? new Date(activeSub.createdAt) : null);
+        createdDateEl.textContent = dCreated ? dCreated.toLocaleDateString("pt-MZ") : "--/--/----";
+      }
+
+      // 2. Data de Aprovação / Ativação
+      if (startDateEl) {
+        const dApproved = activeSub.approvedAt?.toDate ? activeSub.approvedAt.toDate() : (activeSub.approvedAt ? new Date(activeSub.approvedAt) : (activeSub.startDate ? new Date(activeSub.startDate) : null));
+        if (dApproved) {
+          startDateEl.textContent = dApproved.toLocaleDateString("pt-MZ");
+        } else if (activeSub.status === "active") {
+          startDateEl.textContent = "Ativo";
+        } else {
+          startDateEl.textContent = "Aguardando";
+        }
+      }
+
+      // 3. Data de Término / Expiração e Cálculo de Dias Restantes
       if (activeSub.status === "active" && activeSub.endDate) {
         const endMs = new Date(activeSub.endDate).getTime();
         const nowMs = Date.now();
@@ -1448,24 +1491,37 @@ async function loadCustomerDashboardData(state) {
           progressBar.style.width = `${progressPct}%`;
           if (daysLeft <= 3) {
             progressBar.style.background = "var(--color-danger)";
+          } else {
+            progressBar.style.background = "linear-gradient(90deg, #10A37F, #0E7057)";
           }
         }
-        if (startDateEl && activeSub.startDate) {
-          const dStart = new Date(activeSub.startDate);
-          startDateEl.textContent = `Início: ${dStart.toLocaleDateString("pt-MZ")}`;
-        }
-        if (endDateEl && activeSub.endDate) {
+        if (endDateEl) {
           const dEnd = new Date(activeSub.endDate);
-          endDateEl.textContent = `Expira em: ${dEnd.toLocaleDateString("pt-MZ")}`;
+          endDateEl.textContent = dEnd.toLocaleDateString("pt-MZ");
         }
       } else if (activeSub.status === "pending") {
         if (daysLeftEl) daysLeftEl.textContent = "Aguardando aprovação";
         if (progressBar) progressBar.style.width = "100%";
-        if (startDateEl) startDateEl.textContent = "Aguardando conferência do SMS";
-        if (endDateEl) endDateEl.textContent = `Duração: ${activeSub.durationDays || 30} dias após aprovação`;
+        if (endDateEl) endDateEl.textContent = `${activeSub.durationDays || 30} dias após aprovação`;
       } else {
         if (daysLeftEl) daysLeftEl.textContent = "0 dias";
         if (progressBar) progressBar.style.width = "0%";
+        if (endDateEl && activeSub.endDate) {
+          const dEnd = new Date(activeSub.endDate);
+          endDateEl.textContent = dEnd.toLocaleDateString("pt-MZ");
+        }
+      }
+
+      // 4. Aviso de Renovação em Análise
+      if (renewalNoticeEl) {
+        if (activeSub.pendingRenewal) {
+          renewalNoticeEl.style.display = "block";
+          const renPlan = activeSub.pendingRenewal.planName || "Plano";
+          const renInv = activeSub.pendingRenewal.invoiceId || "";
+          renewalNoticeEl.innerHTML = `<span style="font-weight: 700;">Aviso:</span> Pedido de renovação do <strong>${renPlan}</strong> (${renInv}) em conferência pelo operador. Os dias adicionais serão somados à sua vigência assim que aprovado.`;
+        } else {
+          renewalNoticeEl.style.display = "none";
+        }
       }
 
       // Pasta e credenciais

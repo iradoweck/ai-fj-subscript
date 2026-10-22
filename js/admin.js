@@ -13,6 +13,9 @@ import {
 import {
   getAllSubscriptions,
   getAllInvoices,
+  getInvoiceById,
+  calculateSubscriptionDates,
+  listenToAdminSubscriptions,
   approveSubscriptionOrder,
   suspendSubscription,
   reactivateSubscription,
@@ -139,6 +142,8 @@ document.addEventListener("DOMContentLoaded", () => {
 /**
  * Guarda de Rota e Autenticação
  */
+let adminSyncUnsubscribe = null;
+
 function initAuthGuard() {
   subscribeToAuthChanges(async ({ user, profile, isAdmin }) => {
     if (user && isAdmin) {
@@ -153,30 +158,48 @@ function initAuthGuard() {
 
       closeAllModals();
       await loadDashboardData();
-    } else if (user && !isAdmin) {
-      // Utilizador autenticado mas NÃO é admin (Cliente comum)
-      currentAdmin = null;
-      dashboardContainer.style.display = "none";
-      adminUserProfileWidget.style.display = "none";
-      guardContainer.style.display = "block";
 
-      guardTitle.textContent = "Acesso Negado — Permissão Insuficiente";
-      guardDescription.textContent = "A sua conta está autenticada como cliente, mas não possui permissões administrativas na MEGASON. Se precisa de acesso administrativo, contacte a equipa técnica.";
-      guardIconBox.style.backgroundColor = "var(--color-danger-bg)";
-      guardIconBox.style.color = "var(--color-danger-text)";
-      btnOpenAdminLogin.style.display = "none";
+      // Ativa escuta em tempo real para o painel administrativo
+      if (!adminSyncUnsubscribe) {
+        adminSyncUnsubscribe = listenToAdminSubscriptions(async (event) => {
+          await loadDashboardData();
+          if (event && event.type === "order_created") {
+            const customerName = event.payload?.customerName || "Cliente";
+            showToast(`Novo comprovativo recebido de ${customerName}!`, "success");
+          }
+        });
+      }
     } else {
-      // Não autenticado
-      currentAdmin = null;
-      dashboardContainer.style.display = "none";
-      adminUserProfileWidget.style.display = "none";
-      guardContainer.style.display = "block";
+      if (adminSyncUnsubscribe) {
+        adminSyncUnsubscribe();
+        adminSyncUnsubscribe = null;
+      }
 
-      guardTitle.textContent = "Área Restrita — Autenticação Necessária";
-      guardDescription.textContent = "Este painel é de acesso exclusivo para a equipa da MEGASON validar pagamentos e gerir acessos.";
-      guardIconBox.style.backgroundColor = "var(--color-warning-bg)";
-      guardIconBox.style.color = "var(--color-warning-text)";
-      btnOpenAdminLogin.style.display = "inline-flex";
+      if (user && !isAdmin) {
+        // Utilizador autenticado mas NÃO é admin (Cliente comum)
+        currentAdmin = null;
+        dashboardContainer.style.display = "none";
+        adminUserProfileWidget.style.display = "none";
+        guardContainer.style.display = "block";
+
+        guardTitle.textContent = "Acesso Negado — Permissão Insuficiente";
+        guardDescription.textContent = "A sua conta está autenticada como cliente, mas não possui permissões administrativas na MEGASON. Se precisa de acesso administrativo, contacte a equipa técnica.";
+        guardIconBox.style.backgroundColor = "var(--color-danger-bg)";
+        guardIconBox.style.color = "var(--color-danger-text)";
+        btnOpenAdminLogin.style.display = "none";
+      } else {
+        // Não autenticado
+        currentAdmin = null;
+        dashboardContainer.style.display = "none";
+        adminUserProfileWidget.style.display = "none";
+        guardContainer.style.display = "block";
+
+        guardTitle.textContent = "Área Restrita — Autenticação Necessária";
+        guardDescription.textContent = "Este painel é de acesso exclusivo para a equipa da MEGASON validar pagamentos e gerir acessos.";
+        guardIconBox.style.backgroundColor = "var(--color-warning-bg)";
+        guardIconBox.style.color = "var(--color-warning-text)";
+        btnOpenAdminLogin.style.display = "inline-flex";
+      }
     }
   });
 }
@@ -553,11 +576,32 @@ function renderSubscriptionsTable() {
     const invoice = allInvoices.find(inv => inv.id === sub.latestInvoiceId) || null;
     const proofText = invoice ? invoice.proofText : null;
 
+    // Cálculo da vigência e dias restantes
+    let expiryHtml = "";
+    if (sub.status === "active" && sub.endDate) {
+      const endMs = new Date(sub.endDate).getTime();
+      const daysLeft = Math.max(0, Math.ceil((endMs - Date.now()) / (1000 * 60 * 60 * 24)));
+      const isUrgent = daysLeft <= 3;
+      expiryHtml = `
+        <div style="font-size: 11px; margin-top: 2px; color: ${isUrgent ? 'var(--color-danger)' : 'var(--color-text-secondary)'}; font-weight: ${isUrgent ? '700' : '500'};">
+          Expira: ${formatDate(sub.endDate)} (${daysLeft}d rest.)
+        </div>
+      `;
+    } else if (sub.status === "pending") {
+      expiryHtml = `<div style="font-size: 11px; color: var(--color-text-muted); margin-top: 2px;">Duração: ${sub.durationDays || 30}d após aprovação</div>`;
+    }
+
+    const renewalBadge = sub.pendingRenewal ? `
+      <span class="status-badge status-badge-pending" style="font-size: 10px; display: inline-block; margin-top: 3px;">
+        Renovação em Espera
+      </span>
+    ` : "";
+
     return `
       <tr data-sub-id="${sub.id}">
         <td>
           <div style="font-size: var(--font-size-xs); font-family: monospace; font-weight: var(--font-weight-bold); color: var(--color-text-secondary);">${sub.id.slice(0, 10)}...</div>
-          <div style="font-size: 11px; color: var(--color-text-muted);">${dateFormatted}</div>
+          <div style="font-size: 11px; color: var(--color-text-muted);">Pedido: ${dateFormatted}</div>
         </td>
         <td>
           <strong style="display: block; font-size: var(--font-size-sm);">${sub.customerName || "Cliente"}</strong>
@@ -569,6 +613,8 @@ function renderSubscriptionsTable() {
         <td>
           <strong style="font-size: var(--font-size-xs);">${sub.planName || "ChatGPT Plus"}</strong>
           <div style="font-size: var(--font-size-xs); color: var(--color-primary); font-weight: var(--font-weight-bold);">${sub.price || 0} MT</div>
+          ${expiryHtml}
+          ${renewalBadge}
         </td>
         <td>${statusBadge}</td>
         <td>
@@ -779,14 +825,64 @@ function openApproveModal(subscriptionId, invoiceId) {
   const sub = allSubscriptions.find(s => s.id === subscriptionId);
   if (!sub) return;
 
+  const targetInvoiceId = invoiceId || sub.latestInvoiceId || "";
+  const inv = allInvoices.find(i => (i.id === targetInvoiceId || i.invoiceNumber === targetInvoiceId)) || null;
+
   document.getElementById("approve-subscription-id").value = subscriptionId;
-  document.getElementById("approve-invoice-id").value = invoiceId || sub.latestInvoiceId || "";
+  document.getElementById("approve-invoice-id").value = targetInvoiceId;
+
+  // Cálculo matemático rigoroso da vigência para visualização prévia
+  const durationDaysToAdd = Number(inv?.durationDays || sub.durationDays || 30);
+  const now = new Date();
+  const dates = calculateSubscriptionDates({
+    existingStartDate: sub.startDate,
+    existingEndDate: sub.endDate,
+    durationDays: durationDaysToAdd,
+    now
+  });
+
+  const planSummaryEl = document.getElementById("approve-plan-summary");
+  const dateCreatedEl = document.getElementById("approve-date-created");
+  const dateApprovalEl = document.getElementById("approve-date-approval");
+  const dateEndEl = document.getElementById("approve-date-end");
+  const extensionNoteEl = document.getElementById("approve-extension-note");
+
+  if (planSummaryEl) {
+    const pName = inv?.planName || sub.planName || "ChatGPT Plus";
+    const pPrice = inv?.amount || sub.price || 0;
+    planSummaryEl.textContent = `${pName} (${pPrice} MT / ${durationDaysToAdd} Dias)`;
+  }
+
+  if (dateCreatedEl) {
+    const rawCreated = inv?.createdAt || sub.createdAt;
+    const dCreated = rawCreated?.toDate ? rawCreated.toDate() : (rawCreated ? new Date(rawCreated) : new Date());
+    dateCreatedEl.textContent = dCreated.toLocaleString("pt-MZ");
+  }
+
+  if (dateApprovalEl) {
+    dateApprovalEl.textContent = `${now.toLocaleDateString("pt-MZ")} às ${now.toLocaleTimeString("pt-MZ", { hour: "2-digit", minute: "2-digit" })}`;
+  }
+
+  if (dateEndEl) {
+    const dEnd = new Date(dates.endDate);
+    dateEndEl.textContent = `${dEnd.toLocaleDateString("pt-MZ")} (+${durationDaysToAdd} dias)`;
+  }
+
+  if (extensionNoteEl) {
+    if (dates.isExtended) {
+      extensionNoteEl.style.display = "block";
+      const oldEndDate = new Date(sub.endDate).toLocaleDateString("pt-MZ");
+      extensionNoteEl.innerHTML = `<strong>Extensão de Vigência:</strong> A subscrição anterior vencia em <strong>${oldEndDate}</strong>. Com a aprovação desta fatura de ${durationDaysToAdd} dias, a nova expiração foi ampliada para <strong>${new Date(dates.endDate).toLocaleDateString("pt-MZ")}</strong>.`;
+    } else {
+      extensionNoteEl.style.display = "none";
+    }
+  }
 
   // Sugestão de pasta padronizada MEGASON
   const cleanName = (sub.customerName || "Cliente").split(" ")[0];
-  document.getElementById("approve-folder-name").value = `MEGASON - ${cleanName} (${sub.id.slice(0, 4).toUpperCase()})`;
+  document.getElementById("approve-folder-name").value = sub.folderName || `MEGASON - ${cleanName} (${sub.id.slice(0, 4).toUpperCase()})`;
 
-  document.getElementById("approve-credentials").value = `Acesso ChatGPT Plus:
+  document.getElementById("approve-credentials").value = sub.accessCredentials || `Acesso ChatGPT Plus:
 1. Faça login na conta partilhada enviada pela equipa MEGASON.
 2. Acesse a pasta dedicada "${cleanName}" na barra lateral para manter as suas conversas isoladas.
 3. Não altere a senha ou configurações da conta principal.`;

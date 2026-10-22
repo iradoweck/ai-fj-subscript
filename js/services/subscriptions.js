@@ -16,10 +16,154 @@ import {
   query, 
   where, 
   orderBy, 
-  serverTimestamp 
+  serverTimestamp,
+  onSnapshot 
 } from "./firebase.js";
 import { getPlanById } from "./plans.js";
 import { generateCustomerCode } from "./auth.js";
+
+/**
+ * Canal unificado de sincronização em tempo real (Reatividade bidirecional)
+ * Permite que ações do cliente reflitam instantaneamente para o admin e vice-versa
+ */
+const syncChannel = (typeof window !== "undefined" && typeof BroadcastChannel !== "undefined")
+  ? new BroadcastChannel("megason_live_sync")
+  : null;
+
+/**
+ * Dispara evento de sincronização para todas as abas e instâncias ativas
+ * @param {string} eventType 
+ * @param {object} payload 
+ */
+export function notifyStateChange(eventType, payload = {}) {
+  const eventData = {
+    type: eventType,
+    payload,
+    timestamp: Date.now()
+  };
+
+  try {
+    if (syncChannel) {
+      syncChannel.postMessage(eventData);
+    }
+  } catch (err) {
+    console.warn("Falha no BroadcastChannel:", err);
+  }
+
+  try {
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem("megason_live_sync_signal", JSON.stringify(eventData));
+    }
+  } catch {
+    // ignora restrições de storage privado
+  }
+
+  try {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("megason_live_sync", { detail: eventData }));
+    }
+  } catch {
+    // ignora
+  }
+}
+
+/**
+ * Escuta eventos de sincronização em tempo real entre cliente e admin
+ * @param {Function} callback 
+ * @returns {Function} Função para desinscrever o listener
+ */
+export function onStateChange(callback) {
+  if (typeof window === "undefined") return () => {};
+
+  const handleMessage = (event) => {
+    if (event && event.data) {
+      callback(event.data);
+    }
+  };
+
+  const handleStorage = (e) => {
+    if (e.key === "megason_live_sync_signal" && e.newValue) {
+      try {
+        const parsed = JSON.parse(e.newValue);
+        callback(parsed);
+      } catch {
+        // ignora
+      }
+    }
+  };
+
+  const handleCustomEvent = (e) => {
+    if (e.detail) {
+      callback(e.detail);
+    }
+  };
+
+  if (syncChannel) {
+    syncChannel.addEventListener("message", handleMessage);
+  }
+  window.addEventListener("storage", handleStorage);
+  window.addEventListener("megason_live_sync", handleCustomEvent);
+
+  return () => {
+    if (syncChannel) {
+      syncChannel.removeEventListener("message", handleMessage);
+    }
+    window.removeEventListener("storage", handleStorage);
+    window.removeEventListener("megason_live_sync", handleCustomEvent);
+  };
+}
+
+/**
+ * Matemática e Lógica de Vigência de Subscrições
+ * Calcula rigorosamente as datas de início, aprovação e término:
+ * - Se for nova subscrição ou já estiver expirada: inicia no momento da aprovação e dura durationDays.
+ * - Se for renovação com dias restantes: preserva os dias restantes e estende a data de término somando durationDays ao término anterior.
+ * 
+ * @param {object} params
+ * @param {string|null} params.existingStartDate
+ * @param {string|null} params.existingEndDate
+ * @param {number} params.durationDays
+ * @param {Date} [params.now]
+ * @returns {object} { startDate, endDate, durationDays, isExtended, approvedAt }
+ */
+export function calculateSubscriptionDates({
+  existingStartDate = null,
+  existingEndDate = null,
+  durationDays = 30,
+  now = new Date()
+}) {
+  const days = Math.max(1, Number(durationDays) || 30);
+  const nowMs = now.getTime();
+  const existingEndMs = existingEndDate ? new Date(existingEndDate).getTime() : 0;
+
+  let startDate = existingStartDate;
+  let endDate = null;
+  let isExtended = false;
+
+  // Se a subscrição já tinha um término válido no futuro (faltando dias para expirar)
+  if (existingEndMs > nowMs) {
+    // Preserva o início histórico
+    startDate = existingStartDate || now.toISOString();
+    // Aumenta a data de término somando o período contratado à data final atual
+    const newEndMs = existingEndMs + (days * 24 * 60 * 60 * 1000);
+    endDate = new Date(newEndMs).toISOString();
+    isExtended = true;
+  } else {
+    // Nova ativação ou plano já vencido: vigência inicia no ato da aprovação
+    startDate = now.toISOString();
+    const newEndMs = nowMs + (days * 24 * 60 * 60 * 1000);
+    endDate = new Date(newEndMs).toISOString();
+    isExtended = false;
+  }
+
+  return {
+    startDate,
+    endDate,
+    durationDays: days,
+    isExtended,
+    approvedAt: now.toISOString()
+  };
+}
 
 /**
  * Gera o próximo número sequencial oficial de fatura no formato canónico FT[ANO]AIXXX (ex: FT2026AI028)
@@ -98,7 +242,26 @@ export function detectPaymentMethod(proofText) {
 }
 
 /**
- * Cria uma nova subscrição pendente e a fatura com comprovativo em texto associada
+ * Obtém os detalhes de uma fatura por ID
+ * @param {string} invoiceId 
+ * @returns {Promise<object|null>}
+ */
+export async function getInvoiceById(invoiceId) {
+  if (!invoiceId) return null;
+  if (isFirebaseConfigured() && db) {
+    try {
+      const snap = await getDoc(doc(db, "invoices", invoiceId));
+      if (snap.exists()) return snap.data();
+    } catch (err) {
+      console.warn("Erro ao buscar fatura no Firestore:", err);
+    }
+  }
+  const demoList = getMockData("megason_demo_invoices");
+  return demoList.find(i => (i.id === invoiceId || i.invoiceNumber === invoiceId)) || null;
+}
+
+/**
+ * Cria uma nova subscrição pendente ou associa fatura de renovação/upgrade à subscrição existente
  * @param {object} params
  * @returns {Promise<object>} { subscription, invoice }
  */
@@ -124,15 +287,27 @@ export async function createSubscriptionOrder({
 
   // Se o Firebase estiver ativo, persiste nas coleções oficiais
   if (isFirebaseConfigured() && db) {
-    // 1. Gera o número sequencial canónico da fatura FT[ANO]AIXXX e o ID da subscrição
     const invoiceId = await getNextInvoiceNumber();
-    const subRef = doc(collection(db, "subscriptions"));
+
+    // Verifica se o utilizador já tem subscrição anterior
+    let existingSub = null;
+    try {
+      const existingSubs = await getUserSubscriptions(userId);
+      if (existingSubs && existingSubs.length > 0) {
+        existingSub = existingSubs[0];
+      }
+    } catch (e) {
+      console.warn("Aviso ao verificar subscrição existente:", e);
+    }
+
+    const subId = existingSub ? existingSub.id : doc(collection(db, "subscriptions")).id;
     const invRef = doc(db, "invoices", invoiceId);
+    const subRef = doc(db, "subscriptions", subId);
 
     const invoiceData = {
       id: invoiceId,
       invoiceNumber: invoiceId,
-      subscriptionId: subRef.id,
+      subscriptionId: subId,
       userId,
       customerName: customerName.trim(),
       customerEmail: customerEmail.trim().toLowerCase(),
@@ -151,30 +326,63 @@ export async function createSubscriptionOrder({
       updatedAt: serverTimestamp()
     };
 
-    const subscriptionData = {
-      id: subRef.id,
-      userId,
-      customerName: customerName.trim(),
-      customerEmail: customerEmail.trim().toLowerCase(),
-      customerWhatsapp: customerWhatsapp.trim(),
-      planId: plan.id,
-      planName: plan.name,
-      price: plan.price,
-      currency: "MZN",
-      durationDays: plan.durationDays,
-      status: "pending",
-      folderName: null,
-      accessCredentials: null,
-      startDate: null,
-      endDate: null,
-      latestInvoiceId: invoiceId,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    };
+    let subscriptionData;
+    if (existingSub) {
+      // Renovação / Mudança de Plano sobre a subscrição existente
+      subscriptionData = {
+        ...existingSub,
+        latestInvoiceId: invoiceId,
+        pendingRenewal: {
+          invoiceId,
+          planId: plan.id,
+          planName: plan.name,
+          durationDays: plan.durationDays,
+          price: plan.price,
+          requestedAt: now.toISOString()
+        },
+        updatedAt: serverTimestamp()
+      };
+      await updateDoc(subRef, {
+        latestInvoiceId: invoiceId,
+        pendingRenewal: subscriptionData.pendingRenewal,
+        updatedAt: serverTimestamp()
+      });
+    } else {
+      // Primeira subscrição do utilizador
+      subscriptionData = {
+        id: subId,
+        userId,
+        customerName: customerName.trim(),
+        customerEmail: customerEmail.trim().toLowerCase(),
+        customerWhatsapp: customerWhatsapp.trim(),
+        planId: plan.id,
+        planName: plan.name,
+        price: plan.price,
+        currency: "MZN",
+        durationDays: plan.durationDays,
+        status: "pending",
+        folderName: null,
+        accessCredentials: null,
+        startDate: null,
+        endDate: null,
+        approvedAt: null,
+        latestInvoiceId: invoiceId,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      };
+      await setDoc(subRef, subscriptionData);
+    }
 
-    // Salva ambos os documentos
     await setDoc(invRef, invoiceData);
-    await setDoc(subRef, subscriptionData);
+
+    // Notifica em tempo real que um novo pedido/renovação foi submetido
+    notifyStateChange("order_created", {
+      userId,
+      subscriptionId: subId,
+      invoiceId,
+      customerName: customerName.trim(),
+      planName: plan.name
+    });
 
     return {
       subscription: { ...subscriptionData, createdAt: now.toISOString() },
@@ -183,8 +391,10 @@ export async function createSubscriptionOrder({
   }
 
   // Modo Demonstração (Persistência Local no localStorage)
-  const mockSubId = "sub_" + Date.now();
+  const demoSubs = getMockData("megason_demo_subscriptions");
+  let mockExistingSub = demoSubs.find(s => s.userId === userId) || null;
   const mockInvId = await getNextInvoiceNumber();
+  const mockSubId = mockExistingSub ? mockExistingSub.id : ("sub_" + Date.now());
 
   const mockInvoice = {
     id: mockInvId,
@@ -208,29 +418,53 @@ export async function createSubscriptionOrder({
     isMock: true
   };
 
-  const mockSubscription = {
-    id: mockSubId,
-    userId,
-    customerName: customerName.trim(),
-    customerEmail: customerEmail.trim().toLowerCase(),
-    customerWhatsapp: customerWhatsapp.trim(),
-    planId: plan.id,
-    planName: plan.name,
-    price: plan.price,
-    currency: "MZN",
-    durationDays: plan.durationDays,
-    status: "pending",
-    folderName: null,
-    accessCredentials: null,
-    startDate: null,
-    endDate: null,
-    latestInvoiceId: mockInvId,
-    createdAt: now.toISOString(),
-    isMock: true
-  };
+  let mockSubscription;
+  if (mockExistingSub) {
+    mockExistingSub.latestInvoiceId = mockInvId;
+    mockExistingSub.pendingRenewal = {
+      invoiceId: mockInvId,
+      planId: plan.id,
+      planName: plan.name,
+      durationDays: plan.durationDays,
+      price: plan.price,
+      requestedAt: now.toISOString()
+    };
+    mockSubscription = mockExistingSub;
+    localStorage.setItem("megason_demo_subscriptions", JSON.stringify(demoSubs));
+  } else {
+    mockSubscription = {
+      id: mockSubId,
+      userId,
+      customerName: customerName.trim(),
+      customerEmail: customerEmail.trim().toLowerCase(),
+      customerWhatsapp: customerWhatsapp.trim(),
+      planId: plan.id,
+      planName: plan.name,
+      price: plan.price,
+      currency: "MZN",
+      durationDays: plan.durationDays,
+      status: "pending",
+      folderName: null,
+      accessCredentials: null,
+      startDate: null,
+      endDate: null,
+      approvedAt: null,
+      latestInvoiceId: mockInvId,
+      createdAt: now.toISOString(),
+      isMock: true
+    };
+    saveMockData("megason_demo_subscriptions", mockSubscription);
+  }
 
   saveMockData("megason_demo_invoices", mockInvoice);
-  saveMockData("megason_demo_subscriptions", mockSubscription);
+
+  notifyStateChange("order_created", {
+    userId,
+    subscriptionId: mockSubId,
+    invoiceId: mockInvId,
+    customerName: customerName.trim(),
+    planName: plan.name
+  });
 
   return {
     subscription: mockSubscription,
@@ -239,24 +473,36 @@ export async function createSubscriptionOrder({
 }
 
 /**
- * Consulta todas as subscrições pertencentes a um utilizador
+ * Consulta todas as subscrições pertencentes a um utilizador (Prioriza as Ativas)
  * @param {string} userId 
  * @returns {Promise<Array>}
  */
 export async function getUserSubscriptions(userId) {
   if (!userId) return [];
 
+  const sortPriority = (list) => {
+    return list.sort((a, b) => {
+      // 1. Subscrições ativas vêm primeiro
+      if (a.status === "active" && b.status !== "active") return -1;
+      if (b.status === "active" && a.status !== "active") return 1;
+
+      // 2. Data de criação decrescente
+      const dateA = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : new Date(a.createdAt || 0).getTime();
+      const dateB = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : new Date(b.createdAt || 0).getTime();
+      return dateB - dateA;
+    });
+  };
+
   if (isFirebaseConfigured() && db) {
     try {
       const q = query(
         collection(db, "subscriptions"),
-        where("userId", "==", userId),
-        orderBy("createdAt", "desc")
+        where("userId", "==", userId)
       );
       const snapshot = await getDocs(q);
       const list = [];
       snapshot.forEach(docSnap => list.push(docSnap.data()));
-      return list;
+      return sortPriority(list);
     } catch (err) {
       console.warn("Erro ao buscar subscrições remotas:", err);
     }
@@ -264,7 +510,8 @@ export async function getUserSubscriptions(userId) {
 
   // Modo Demonstração
   const demoList = getMockData("megason_demo_subscriptions");
-  return demoList.filter(item => item.userId === userId);
+  const userSubs = demoList.filter(item => item.userId === userId);
+  return sortPriority(userSubs);
 }
 
 /**
@@ -662,7 +909,9 @@ export async function getAllInvoices(filterStatus = "all") {
 }
 
 /**
- * Aprova o pagamento de uma subscrição pendente e entrega a pasta/credenciais do ChatGPT Plus
+ * Aprova o pagamento de uma subscrição pendente ou renovação e atualiza as datas
+ * Se a subscrição já tem dias restantes, as datas aumentam estendendo a vigência.
+ * 
  * @param {object} params
  * @returns {Promise<boolean>}
  */
@@ -685,10 +934,26 @@ export async function approveSubscriptionOrder({
   const sub = await getSubscriptionById(subscriptionId);
   if (!sub) throw new Error("Subscrição não encontrada.");
 
-  const durationDays = sub.durationDays || 30;
+  const targetInvoiceId = invoiceId || sub.latestInvoiceId;
+  let targetInvoice = null;
+  if (targetInvoiceId) {
+    targetInvoice = await getInvoiceById(targetInvoiceId);
+  }
+
+  // Define os dias a adicionar com base na fatura que está a ser aprovada
+  const durationDaysToAdd = Number(targetInvoice?.durationDays || sub.durationDays || 30);
   const now = new Date();
-  const startDate = now.toISOString();
-  const endDate = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000).toISOString();
+
+  // Executa o cálculo rigoroso de datas (extensão de término se houver dias restantes)
+  const dates = calculateSubscriptionDates({
+    existingStartDate: sub.startDate,
+    existingEndDate: sub.endDate,
+    durationDays: durationDaysToAdd,
+    now
+  });
+
+  const resolvedPlanId = targetInvoice?.planId || sub.planId;
+  const resolvedPlanName = targetInvoice?.planName || sub.planName;
 
   if (isFirebaseConfigured() && db) {
     const subRef = doc(db, "subscriptions", subscriptionId);
@@ -696,15 +961,19 @@ export async function approveSubscriptionOrder({
       status: "active",
       folderName: folderName.trim(),
       accessCredentials: accessCredentials.trim(),
-      startDate,
-      endDate,
+      startDate: dates.startDate,
+      endDate: dates.endDate,
+      durationDays: durationDaysToAdd,
+      planId: resolvedPlanId,
+      planName: resolvedPlanName,
       approvedBy: adminUid || "admin",
       approvedAt: serverTimestamp(),
+      pendingRenewal: null,
+      latestInvoiceId: targetInvoiceId || null,
       adminNotes: adminNotes ? adminNotes.trim() : null,
       updatedAt: serverTimestamp()
     });
 
-    const targetInvoiceId = invoiceId || sub.latestInvoiceId;
     if (targetInvoiceId) {
       const invRef = doc(db, "invoices", targetInvoiceId);
       await updateDoc(invRef, {
@@ -716,10 +985,19 @@ export async function approveSubscriptionOrder({
       });
     }
 
+    notifyStateChange("order_approved", {
+      subscriptionId,
+      invoiceId: targetInvoiceId,
+      userId: sub.userId,
+      customerName: sub.customerName,
+      endDate: dates.endDate,
+      isExtended: dates.isExtended
+    });
+
     return true;
   }
 
-  // Modo Demonstração
+  // Modo Demonstração (localStorage)
   const subs = getMockData("megason_demo_subscriptions");
   const subIndex = subs.findIndex(s => s.id === subscriptionId);
   if (subIndex !== -1) {
@@ -728,32 +1006,142 @@ export async function approveSubscriptionOrder({
       status: "active",
       folderName: folderName.trim(),
       accessCredentials: accessCredentials.trim(),
-      startDate,
-      endDate,
+      startDate: dates.startDate,
+      endDate: dates.endDate,
+      durationDays: durationDaysToAdd,
+      planId: resolvedPlanId,
+      planName: resolvedPlanName,
       approvedBy: adminUid || "admin_demo",
       approvedAt: now.toISOString(),
-      adminNotes: adminNotes ? adminNotes.trim() : null
+      pendingRenewal: null,
+      latestInvoiceId: targetInvoiceId || subs[subIndex].latestInvoiceId,
+      adminNotes: adminNotes ? adminNotes.trim() : null,
+      updatedAt: now.toISOString()
     };
     localStorage.setItem("megason_demo_subscriptions", JSON.stringify(subs));
   }
 
-  const targetInvoiceId = invoiceId || (subs[subIndex] && subs[subIndex].latestInvoiceId);
   if (targetInvoiceId) {
     const invs = getMockData("megason_demo_invoices");
-    const invIndex = invs.findIndex(inv => inv.id === targetInvoiceId);
+    const invIndex = invs.findIndex(inv => (inv.id === targetInvoiceId || inv.invoiceNumber === targetInvoiceId));
     if (invIndex !== -1) {
       invs[invIndex] = {
         ...invs[invIndex],
         status: "paid",
         paidAt: now.toISOString(),
         confirmedBy: adminUid || "admin_demo",
-        adminNotes: adminNotes ? adminNotes.trim() : null
+        adminNotes: adminNotes ? adminNotes.trim() : null,
+        updatedAt: now.toISOString()
       };
       localStorage.setItem("megason_demo_invoices", JSON.stringify(invs));
     }
   }
 
+  notifyStateChange("order_approved", {
+    subscriptionId,
+    invoiceId: targetInvoiceId,
+    userId: sub.userId,
+    customerName: sub.customerName,
+    endDate: dates.endDate,
+    isExtended: dates.isExtended
+  });
+
   return true;
+}
+
+/**
+ * Escuta em tempo real atualizações da subscrição de um utilizador específico
+ * @param {string} userId 
+ * @param {Function} onUpdate 
+ * @returns {Function} Função para encerrar o listener
+ */
+export function listenToUserSubscription(userId, onUpdate) {
+  if (!userId) return () => {};
+
+  let unsubscribeFirestore = null;
+
+  if (isFirebaseConfigured() && db) {
+    try {
+      const q = query(
+        collection(db, "subscriptions"),
+        where("userId", "==", userId)
+      );
+      unsubscribeFirestore = onSnapshot(q, (snapshot) => {
+        const list = [];
+        snapshot.forEach(docSnap => list.push(docSnap.data()));
+        list.sort((a, b) => {
+          if (a.status === "active" && b.status !== "active") return -1;
+          if (b.status === "active" && a.status !== "active") return 1;
+          const dateA = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : new Date(a.createdAt || 0).getTime();
+          const dateB = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : new Date(b.createdAt || 0).getTime();
+          return dateB - dateA;
+        });
+        onUpdate(list);
+      }, (err) => {
+        console.warn("Aviso no onSnapshot de subscrições do utilizador:", err);
+      });
+    } catch (err) {
+      console.warn("Falha ao registrar onSnapshot:", err);
+    }
+  }
+
+  const unsubscribeSync = onStateChange(async (event) => {
+    if (event.type === "order_approved" || event.type === "order_created" || event.type === "order_status_changed") {
+      try {
+        const currentList = await getUserSubscriptions(userId);
+        onUpdate(currentList);
+      } catch (err) {
+        console.warn("Erro ao atualizar via sync local:", err);
+      }
+    }
+  });
+
+  return () => {
+    if (unsubscribeFirestore) {
+      try { unsubscribeFirestore(); } catch {}
+    }
+    unsubscribeSync();
+  };
+}
+
+/**
+ * Escuta em tempo real atualizações gerais de subscrições e faturas para o painel Admin
+ * @param {Function} onUpdate 
+ * @returns {Function} Função para encerrar o listener
+ */
+export function listenToAdminSubscriptions(onUpdate) {
+  let unsubSubs = null;
+  let unsubInvs = null;
+
+  if (isFirebaseConfigured() && db) {
+    try {
+      const qSubs = query(collection(db, "subscriptions"), orderBy("createdAt", "desc"));
+      unsubSubs = onSnapshot(qSubs, () => {
+        onUpdate();
+      }, () => {});
+
+      const qInvs = query(collection(db, "invoices"), orderBy("createdAt", "desc"));
+      unsubInvs = onSnapshot(qInvs, () => {
+        onUpdate();
+      }, () => {});
+    } catch (err) {
+      console.warn("Falha no listener Firestore do Admin:", err);
+    }
+  }
+
+  const unsubSync = onStateChange((event) => {
+    onUpdate(event);
+  });
+
+  return () => {
+    if (unsubSubs) {
+      try { unsubSubs(); } catch {}
+    }
+    if (unsubInvs) {
+      try { unsubInvs(); } catch {}
+    }
+    unsubSync();
+  };
 }
 
 /**
@@ -778,6 +1166,7 @@ export async function suspendSubscription({ subscriptionId, adminUid, reason }) 
       suspendReason: reason.trim(),
       updatedAt: serverTimestamp()
     });
+    notifyStateChange("order_status_changed", { subscriptionId, status: "suspended" });
     return true;
   }
 
@@ -794,6 +1183,7 @@ export async function suspendSubscription({ subscriptionId, adminUid, reason }) 
     };
     localStorage.setItem("megason_demo_subscriptions", JSON.stringify(subs));
   }
+  notifyStateChange("order_status_changed", { subscriptionId, status: "suspended" });
   return true;
 }
 
@@ -815,6 +1205,7 @@ export async function reactivateSubscription({ subscriptionId, adminUid }) {
       reactivatedAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
+    notifyStateChange("order_status_changed", { subscriptionId, status: "active" });
     return true;
   }
 
@@ -830,6 +1221,7 @@ export async function reactivateSubscription({ subscriptionId, adminUid }) {
     };
     localStorage.setItem("megason_demo_subscriptions", JSON.stringify(subs));
   }
+  notifyStateChange("order_status_changed", { subscriptionId, status: "active" });
   return true;
 }
 
@@ -866,6 +1258,7 @@ export async function cancelSubscriptionOrder({ subscriptionId, invoiceId, admin
         updatedAt: serverTimestamp()
       });
     }
+    notifyStateChange("order_status_changed", { subscriptionId, status: "cancelled" });
     return true;
   }
 
@@ -898,6 +1291,7 @@ export async function cancelSubscriptionOrder({ subscriptionId, invoiceId, admin
     }
   }
 
+  notifyStateChange("order_status_changed", { subscriptionId, status: "cancelled" });
   return true;
 }
 

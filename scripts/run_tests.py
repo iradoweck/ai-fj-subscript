@@ -221,6 +221,67 @@ def test_invoice_id_format():
     assert not invoice_pattern.match("FT26AI01"), "Deveria exigir ano de 4 dígitos e mínimo de 3 dígitos sequenciais"
 
 # -----------------------------------------------------------------------------
+# 6. Testes da Lógica e Matemática de Vigência e Renovação
+# -----------------------------------------------------------------------------
+print("📦 Testes da Matemática e Vigência de Subscrições (Aprovação & Renovação):")
+
+from datetime import datetime, timezone, timedelta
+
+def calculate_subscription_dates_py(existing_start, existing_end, duration_days, now_dt):
+    days = max(1, int(duration_days or 30))
+    if existing_end and existing_end > now_dt:
+        # Renovação com dias restantes: término aumenta somando ao término anterior
+        start_date = existing_start or now_dt
+        new_end = existing_end + timedelta(days=days)
+        is_extended = True
+    else:
+        # Nova ativação ou plano expirado: inicia agora
+        start_date = now_dt
+        new_end = now_dt + timedelta(days=days)
+        is_extended = False
+    return start_date, new_end, is_extended
+
+@test("Nova Subscrição: Início no ato da aprovação e término exato conforme o plano")
+def test_new_subscription_math():
+    now = datetime(2026, 10, 21, 12, 0, 0, tzinfo=timezone.utc)
+    start, end, is_ext = calculate_subscription_dates_py(None, None, 30, now)
+    assert start == now, "Data de início deve ser a data de aprovação"
+    assert end == now + timedelta(days=30), "Data de término deve ser exatamente 30 dias após aprovação"
+    assert is_ext is False
+
+@test("Renovação com Dias Restantes: Data de término AUMENTA somando ao término anterior")
+def test_renewal_accumulation_math():
+    now = datetime(2026, 10, 21, 12, 0, 0, tzinfo=timezone.utc)
+    # Cliente tem subscrição que expira daqui a 5 dias (26/10/2026)
+    existing_start = datetime(2026, 9, 26, 12, 0, 0, tzinfo=timezone.utc)
+    existing_end = datetime(2026, 10, 26, 12, 0, 0, tzinfo=timezone.utc)
+    
+    # Cliente renova plano de 30 dias
+    start, end, is_ext = calculate_subscription_dates_py(existing_start, existing_end, 30, now)
+    assert is_ext is True, "Deve ser classificado como extensão"
+    assert start == existing_start, "Início histórico deve ser preservado"
+    # Novo término deve ser 26/10 + 30 dias = 25/11/2026
+    expected_end = existing_end + timedelta(days=30)
+    assert end == expected_end, f"Término esperado {expected_end}, mas obteve {end}"
+    
+    # Dias totais restantes a partir de agora: 5 + 30 = 35 dias
+    days_left = (end - now).days
+    assert days_left == 35, f"Dias restantes esperados: 35, mas calculou: {days_left}"
+
+@test("Renovação após Expiração: Novo período reinicia a partir da aprovação")
+def test_renewal_after_expiration_math():
+    now = datetime(2026, 10, 21, 12, 0, 0, tzinfo=timezone.utc)
+    # Subscrição expirou ontem (20/10/2026)
+    existing_start = datetime(2026, 9, 20, 12, 0, 0, tzinfo=timezone.utc)
+    existing_end = datetime(2026, 10, 20, 12, 0, 0, tzinfo=timezone.utc)
+    
+    start, end, is_ext = calculate_subscription_dates_py(existing_start, existing_end, 30, now)
+    assert is_ext is False, "Não deve ser extensão se já estava expirada"
+    assert start == now, "Data de início deve reiniciar agora"
+    assert end == now + timedelta(days=30), "Data final deve ser agora + 30 dias"
+
+
+# -----------------------------------------------------------------------------
 # Resumo Final
 # -----------------------------------------------------------------------------
 print(f"\n{YELLOW}------------------------------------------------------{RESET}")
