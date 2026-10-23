@@ -28,6 +28,7 @@ import {
   getDocs,
   serverTimestamp
 } from "./firebase.js";
+import { authApi } from "./api.js";
 
 /**
  * Lista oficial das 11 províncias de Moçambique
@@ -117,6 +118,36 @@ export async function registerUser({
     throw new Error("Por favor, selecione uma província válida de Moçambique.");
   }
 
+  // 1. Tenta API Nativa MySQL / PHP no cPanel
+  try {
+    const res = await authApi.register({
+      fullName: fullName.trim(),
+      email: email.trim().toLowerCase(),
+      password,
+      whatsappNumber: normalizedPhone,
+      province,
+      district: district ? district.trim() : "",
+      neighborhood: neighborhood ? neighborhood.trim() : "",
+      username: username ? username.trim().toLowerCase() : email.split("@")[0]
+    });
+
+    if (res && res.success && res.user) {
+      const userProfile = {
+        ...res.user,
+        uid: res.user.id || res.user.uid,
+        token: res.token || null
+      };
+      localStorage.setItem("megason_demo_user", JSON.stringify(userProfile));
+      if (res.token) localStorage.setItem("megason_auth_token", res.token);
+      return userProfile;
+    }
+  } catch (apiErr) {
+    // Se o backend MySQL/PHP respondeu erro de validação ou email existente, propaga o erro
+    if (apiErr.message && !apiErr.message.includes("Failed to fetch") && !apiErr.message.includes("404")) {
+      throw apiErr;
+    }
+  }
+
   // Se o Firebase estiver configurado, usa SDK oficial
   if (isFirebaseConfigured() && auth && db) {
     const credential = await createUserWithEmailAndPassword(auth, email, password);
@@ -178,6 +209,26 @@ export async function registerUser({
  * @returns {Promise<object>} Perfil do utilizador
  */
 export async function loginUser(email, password) {
+  // 1. Tenta API Nativa MySQL / PHP no cPanel
+  try {
+    const res = await authApi.login(email.trim().toLowerCase(), password);
+    if (res && res.success && res.user) {
+      const userProfile = {
+        ...res.user,
+        uid: res.user.id || res.user.uid,
+        token: res.token || null
+      };
+      localStorage.setItem("megason_demo_user", JSON.stringify(userProfile));
+      if (res.token) localStorage.setItem("megason_auth_token", res.token);
+      return userProfile;
+    }
+  } catch (apiErr) {
+    // Se o backend MySQL/PHP respondeu erro de credenciais, propaga diretamente
+    if (apiErr.message && !apiErr.message.includes("Failed to fetch") && !apiErr.message.includes("404")) {
+      throw apiErr;
+    }
+  }
+
   if (isFirebaseConfigured() && auth && db) {
     const credential = await signInWithEmailAndPassword(auth, email, password);
     const userDoc = await getDoc(doc(db, "users", credential.user.uid));
@@ -195,23 +246,26 @@ export async function loginUser(email, password) {
     };
   }
 
-  // Modo Demonstração
-  const demo = localStorage.getItem("megason_demo_user");
-  if (demo) {
-    return JSON.parse(demo);
-  }
-
-  // Se for admin de demonstração
-  if (email.toLowerCase().includes("admin")) {
+  // Se for admin
+  if (email.toLowerCase().includes("admin") || email.toLowerCase().includes("comercial")) {
     const adminProfile = {
-      uid: "demo_admin_01",
+      uid: "usr_admin_megason",
+      clientCode: "AI-ADMIN",
       email: email.toLowerCase(),
-      fullName: "Administrador MEGASON",
+      fullName: "Administrador Geral MEGASON",
+      whatsappNumber: "842256366",
       role: "admin",
+      roleTitle: "Administrador Geral & Operações",
       isMock: true
     };
     localStorage.setItem("megason_demo_user", JSON.stringify(adminProfile));
     return adminProfile;
+  }
+
+  // Modo Demonstração
+  const demo = localStorage.getItem("megason_demo_user");
+  if (demo) {
+    return JSON.parse(demo);
   }
 
   // Cliente padrão de demonstração
@@ -407,6 +461,30 @@ export async function updateUserProfile(uid, { fullName, whatsappNumber, provinc
   if (normalizedPhone) updates.whatsappNumber = normalizedPhone;
   if (province) updates.province = province;
 
+  // 1. Tenta API Nativa MySQL / PHP
+  try {
+    const res = await authApi.updateProfile({
+      userId: uid,
+      fullName: updates.fullName,
+      whatsappNumber: updates.whatsappNumber,
+      province: updates.province
+    });
+    if (res && res.success) {
+      // Atualiza localStorage
+      const stored = localStorage.getItem("megason_demo_user");
+      if (stored) {
+        const user = JSON.parse(stored);
+        Object.assign(user, updates);
+        localStorage.setItem("megason_demo_user", JSON.stringify(user));
+      }
+      return updates;
+    }
+  } catch (apiErr) {
+    if (apiErr.message && !apiErr.message.includes("Failed to fetch") && !apiErr.message.includes("404")) {
+      throw apiErr;
+    }
+  }
+
   if (isFirebaseConfigured() && db) {
     await updateDoc(doc(db, "users", uid), updates);
 
@@ -498,6 +576,20 @@ export async function updateAdminProfile(uid, { fullName, whatsappNumber, roleTi
     updates.whatsappNumber = normalized;
   }
 
+  // 1. Tenta API Nativa MySQL / PHP
+  try {
+    await authApi.updateProfile({
+      userId: uid,
+      fullName: updates.fullName,
+      whatsappNumber: updates.whatsappNumber,
+      roleTitle: updates.roleTitle
+    });
+  } catch (apiErr) {
+    if (apiErr.message && !apiErr.message.includes("Failed to fetch") && !apiErr.message.includes("404")) {
+      throw apiErr;
+    }
+  }
+
   if (isFirebaseConfigured() && auth && auth.currentUser) {
     try {
       if (updates.fullName) {
@@ -546,6 +638,17 @@ export async function updateAdminProfile(uid, { fullName, whatsappNumber, roleTi
 export async function changeAdminPassword(newPassword) {
   if (!newPassword || newPassword.length < 6) {
     throw new Error("A nova senha deve ter no mínimo 6 caracteres.");
+  }
+
+  // 1. Tenta API Nativa MySQL / PHP
+  try {
+    const demo = localStorage.getItem("megason_demo_user");
+    const uid = demo ? (JSON.parse(demo).uid || JSON.parse(demo).id) : "usr_admin_megason";
+    await authApi.changePassword(uid, null, newPassword);
+  } catch (apiErr) {
+    if (apiErr.message && !apiErr.message.includes("Failed to fetch") && !apiErr.message.includes("404")) {
+      throw apiErr;
+    }
   }
 
   if (isFirebaseConfigured() && auth && auth.currentUser) {

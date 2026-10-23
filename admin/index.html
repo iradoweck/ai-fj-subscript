@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>Painel Administrativo — MEGASON GPT-6 Astra</title>
   <meta name="description" content="Painel de gestão e conferência manual de subscrições e faturas do ChatGPT Plus — MEGASON Moçambique.">
   <meta name="robots" content="noindex, nofollow">
@@ -860,6 +863,30 @@
               </form>
             </div>
 
+            <!-- CARD 3: INFRAESTRUTURA & CONEXÃO COM O BANCO DE DADOS MYSQL -->
+            <div style="background: var(--color-bg-surface); border: 1px solid var(--color-border-subtle); border-radius: var(--radius-lg); padding: var(--space-6); box-shadow: var(--shadow-sm);">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-4); border-bottom: 1px solid var(--color-border-subtle); padding-bottom: var(--space-3);">
+                <div>
+                  <h3 style="font-size: var(--font-size-base); font-weight: var(--font-weight-bold); margin: 0; display: flex; align-items: center; gap: 8px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--color-primary);">
+                      <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+                      <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
+                      <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+                    </svg>
+                    Infraestrutura & Base de Dados MySQL (cPanel / Laragon)
+                  </h3>
+                  <p style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin: 2px 0 0 0;">
+                    Monitore a integridade do banco de dados relacional, conectividade PDO e total de registos das 5 tabelas.
+                  </p>
+                </div>
+                <button type="button" id="btn-test-db-connection" class="btn btn-secondary btn-sm" style="font-size: 11px;">
+                  Testar Conexão Agora
+                </button>
+              </div>
+
+              <div id="db-diagnostic-result" style="display: none; padding: var(--space-4); border-radius: var(--radius-md); font-size: var(--font-size-xs); line-height: 1.6;"></div>
+            </div>
+
           </div>
         </div>
 
@@ -1110,11 +1137,11 @@
         <div class="modal-body" style="display: flex; flex-direction: column; gap: var(--space-3);">
           <div>
             <label for="admin-login-email" class="form-label" style="font-size: var(--font-size-xs);">Email do Administrador:</label>
-            <input type="email" id="admin-login-email" class="form-input" placeholder="admin@admin-megason.com" required>
+            <input type="email" id="admin-login-email" class="form-input" value="admin@admin-megason.site" placeholder="admin@admin-megason.site" required>
           </div>
           <div>
             <label for="admin-login-password" class="form-label" style="font-size: var(--font-size-xs);">Palavra-passe:</label>
-            <input type="password" id="admin-login-password" class="form-input" placeholder="••••••••" required>
+            <input type="password" id="admin-login-password" class="form-input" value="123456" placeholder="••••••••" required>
           </div>
           <div id="admin-login-error" style="display: none; padding: 8px 12px; background: var(--color-danger-bg); color: var(--color-danger-text); font-size: var(--font-size-xs); border-radius: 6px;"></div>
         </div>
@@ -1772,6 +1799,6 @@
   <div id="toast-container" class="toast-container" aria-live="polite"></div>
 
   <!-- Scripts Administrativos Modulares -->
-  <script type="module" src="../js/admin.js"></script>
+  <script type="module" src="../js/admin.js?v=2.0.0"></script>
 </body>
 </html>

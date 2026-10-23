@@ -1,0 +1,12 @@
+# Proteger arquivos de configuração sensíveis (db.php, .env, .git)
+<Files "db.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+<FilesMatch "^(db\.php|\.env|\.git)">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# Desativar listagem de diretório
+Options -Indexes

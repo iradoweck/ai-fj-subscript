@@ -22,6 +22,7 @@ import {
 } from "./firebase.js";
 import { getPlanById } from "./plans.js";
 import { generateCustomerCode } from "./auth.js";
+import { subscriptionsApi, invoicesApi, customersApi, settingsApi } from "./api.js";
 
 /**
  * Canal unificado de sincronização em tempo real (Reatividade bidirecional)
@@ -286,6 +287,37 @@ export async function createSubscriptionOrder({
   const detectedMethod = paymentMethod || detectPaymentMethod(proofText);
   const now = new Date();
 
+  // 1. Tenta API Nativa MySQL / PHP no cPanel
+  try {
+    const res = await subscriptionsApi.create({
+      userId,
+      planId,
+      customerName: customerName.trim(),
+      customerEmail: customerEmail.trim().toLowerCase(),
+      customerWhatsapp: customerWhatsapp.trim(),
+      proofText: proofText.trim(),
+      paymentMethod: detectedMethod
+    });
+
+    if (res && res.success && res.order) {
+      notifyStateChange("order_created", {
+        userId,
+        subscriptionId: res.order.subscription?.id,
+        invoiceId: res.order.invoice?.id,
+        customerName: customerName.trim(),
+        planName: plan.name
+      });
+      return {
+        subscription: res.order.subscription,
+        invoice: res.order.invoice
+      };
+    }
+  } catch (apiErr) {
+    if (apiErr.message && !apiErr.message.includes("Failed to fetch") && !apiErr.message.includes("404")) {
+      throw apiErr;
+    }
+  }
+
   // Se o Firebase estiver ativo, persiste nas coleções oficiais
   if (isFirebaseConfigured() && db) {
     const invoiceId = await getNextInvoiceNumber();
@@ -482,6 +514,16 @@ export async function createSubscriptionOrder({
 export async function getUserSubscriptions(userId, userEmail = null) {
   if (!userId && !userEmail) return [];
 
+  // 1. Tenta API Nativa MySQL / PHP no cPanel
+  try {
+    const res = await subscriptionsApi.list({ userId, email: userEmail });
+    if (res && res.success && Array.isArray(res.subscriptions)) {
+      return res.subscriptions;
+    }
+  } catch (apiErr) {
+    // Silencioso se offline, segue para Firestore/Mock
+  }
+
   const subMap = new Map();
 
   const sortPriority = (list) => {
@@ -551,6 +593,16 @@ export async function getUserSubscriptions(userId, userEmail = null) {
  */
 export async function getUserInvoices(userId, userEmail = null) {
   if (!userId && !userEmail) return [];
+
+  // 1. Tenta API Nativa MySQL / PHP no cPanel
+  try {
+    const res = await invoicesApi.list({ userId, email: userEmail });
+    if (res && res.success && Array.isArray(res.invoices)) {
+      return res.invoices;
+    }
+  } catch (apiErr) {
+    // Silencioso se offline, segue para Firestore/Mock
+  }
 
   const invoiceMap = new Map();
 
@@ -903,6 +955,16 @@ export async function getSubscriptionById(subscriptionId) {
  * @returns {Promise<Array>}
  */
 export async function getAllSubscriptions(filterStatus = "all") {
+  // 1. Tenta API Nativa MySQL / PHP no cPanel
+  try {
+    const res = await subscriptionsApi.list({ status: filterStatus });
+    if (res && res.success && Array.isArray(res.subscriptions)) {
+      return res.subscriptions;
+    }
+  } catch (apiErr) {
+    // Silencioso se offline, segue para Firestore/Mock
+  }
+
   if (isFirebaseConfigured() && db) {
     try {
       let q;
@@ -941,6 +1003,16 @@ export async function getAllSubscriptions(filterStatus = "all") {
  * @returns {Promise<Array>}
  */
 export async function getAllInvoices(filterStatus = "all") {
+  // 1. Tenta API Nativa MySQL / PHP no cPanel
+  try {
+    const res = await invoicesApi.list({ status: filterStatus });
+    if (res && res.success && Array.isArray(res.invoices)) {
+      return res.invoices;
+    }
+  } catch (apiErr) {
+    // Silencioso se offline, segue para Firestore/Mock
+  }
+
   if (isFirebaseConfigured() && db) {
     try {
       let q;
@@ -1019,6 +1091,26 @@ export async function approveSubscriptionOrder({
 
   const resolvedPlanId = targetInvoice?.planId || sub.planId;
   const resolvedPlanName = targetInvoice?.planName || sub.planName;
+
+  // 1. Tenta API Nativa MySQL / PHP no cPanel
+  try {
+    const res = await subscriptionsApi.approve(subscriptionId, adminUid || "admin");
+    if (res && res.success) {
+      notifyStateChange("order_approved", {
+        subscriptionId,
+        invoiceId: targetInvoiceId,
+        userId: sub.userId,
+        customerName: sub.customerName,
+        endDate: res.subscription?.endDate || dates.endDate,
+        isExtended: dates.isExtended
+      });
+      return true;
+    }
+  } catch (apiErr) {
+    if (apiErr.message && !apiErr.message.includes("Failed to fetch") && !apiErr.message.includes("404")) {
+      throw apiErr;
+    }
+  }
 
   if (isFirebaseConfigured() && db) {
     const subRef = doc(db, "subscriptions", subscriptionId);
@@ -1222,6 +1314,19 @@ export async function suspendSubscription({ subscriptionId, adminUid, reason }) 
 
   const now = new Date();
 
+  // 1. Tenta API Nativa MySQL / PHP no cPanel
+  try {
+    const res = await subscriptionsApi.suspend(subscriptionId, reason.trim());
+    if (res && res.success) {
+      notifyStateChange("order_status_changed", { subscriptionId, status: "suspended" });
+      return true;
+    }
+  } catch (apiErr) {
+    if (apiErr.message && !apiErr.message.includes("Failed to fetch") && !apiErr.message.includes("404")) {
+      throw apiErr;
+    }
+  }
+
   if (isFirebaseConfigured() && db) {
     const subRef = doc(db, "subscriptions", subscriptionId);
     await updateDoc(subRef, {
@@ -1261,6 +1366,19 @@ export async function reactivateSubscription({ subscriptionId, adminUid }) {
   if (!subscriptionId) throw new Error("ID da subscrição é obrigatório.");
 
   const now = new Date();
+
+  // 1. Tenta API Nativa MySQL / PHP no cPanel
+  try {
+    const res = await subscriptionsApi.reactivate(subscriptionId);
+    if (res && res.success) {
+      notifyStateChange("order_status_changed", { subscriptionId, status: "active" });
+      return true;
+    }
+  } catch (apiErr) {
+    if (apiErr.message && !apiErr.message.includes("Failed to fetch") && !apiErr.message.includes("404")) {
+      throw apiErr;
+    }
+  }
 
   if (isFirebaseConfigured() && db) {
     const subRef = doc(db, "subscriptions", subscriptionId);
@@ -1302,6 +1420,19 @@ export async function cancelSubscriptionOrder({ subscriptionId, invoiceId, admin
   }
 
   const now = new Date();
+
+  // 1. Tenta API Nativa MySQL / PHP no cPanel
+  try {
+    const res = await subscriptionsApi.cancel(subscriptionId, reason.trim());
+    if (res && res.success) {
+      notifyStateChange("order_status_changed", { subscriptionId, status: "cancelled" });
+      return true;
+    }
+  } catch (apiErr) {
+    if (apiErr.message && !apiErr.message.includes("Failed to fetch") && !apiErr.message.includes("404")) {
+      throw apiErr;
+    }
+  }
 
   if (isFirebaseConfigured() && db) {
     const subRef = doc(db, "subscriptions", subscriptionId);
@@ -1365,6 +1496,16 @@ export async function cancelSubscriptionOrder({ subscriptionId, invoiceId, admin
  * @returns {Promise<object>}
  */
 export async function getFinancialMetrics() {
+  // 1. Tenta API Nativa MySQL / PHP no cPanel
+  try {
+    const res = await subscriptionsApi.metrics();
+    if (res && res.success && res.metrics) {
+      return res.metrics;
+    }
+  } catch (apiErr) {
+    // Silencioso se offline, segue para cálculo local
+  }
+
   const [subscriptions, invoices, customers] = await Promise.all([
     getAllSubscriptions("all"),
     getAllInvoices("all"),
@@ -1408,6 +1549,16 @@ export async function getFinancialMetrics() {
  * @returns {Promise<Array>}
  */
 export async function getAllCustomers() {
+  // 1. Tenta API Nativa MySQL / PHP no cPanel
+  try {
+    const res = await customersApi.list();
+    if (res && res.success && Array.isArray(res.customers)) {
+      return res.customers;
+    }
+  } catch (apiErr) {
+    // Silencioso se offline, segue para Firestore/Mock
+  }
+
   const customerMap = new Map();
 
   if (isFirebaseConfigured() && db) {
@@ -1599,6 +1750,28 @@ export async function adminUpdateCustomer({
   if (province) updates.province = province;
   if (adminNotes !== undefined) updates.adminNotes = adminNotes.trim();
 
+  // 1. Tenta API Nativa MySQL / PHP no cPanel
+  try {
+    const res = await customersApi.update({
+      userId,
+      customerEmail,
+      fullName: updates.fullName,
+      whatsappNumber: updates.whatsappNumber,
+      province: updates.province,
+      folderName: folderName ? folderName.trim() : null,
+      accessCredentials: accessCredentials ? accessCredentials.trim() : null,
+      adminNotes: adminNotes !== undefined ? adminNotes.trim() : null
+    });
+    if (res && res.success) {
+      notifyStateChange("customer_updated", { userId, customerEmail, updates });
+      return updates;
+    }
+  } catch (apiErr) {
+    if (apiErr.message && !apiErr.message.includes("Failed to fetch") && !apiErr.message.includes("404")) {
+      throw apiErr;
+    }
+  }
+
   if (isFirebaseConfigured() && db) {
     if (userId) {
       try {
@@ -1779,6 +1952,19 @@ export async function deleteCustomerCascade({ userId, customerEmail }) {
   }
 
   const cleanEmail = customerEmail ? customerEmail.trim().toLowerCase() : null;
+
+  // 1. Tenta API Nativa MySQL / PHP no cPanel com ON DELETE CASCADE
+  try {
+    const res = await customersApi.delete(userId || cleanEmail);
+    if (res && res.success) {
+      notifyStateChange("customer_deleted", { userId, customerEmail: cleanEmail });
+      return true;
+    }
+  } catch (apiErr) {
+    if (apiErr.message && !apiErr.message.includes("Failed to fetch") && !apiErr.message.includes("404")) {
+      throw apiErr;
+    }
+  }
 
   if (isFirebaseConfigured() && db) {
     try {

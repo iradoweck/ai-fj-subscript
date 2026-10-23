@@ -532,6 +532,66 @@ def test_sidebar_collapse_and_mobile_drawer():
         content_js = f.read()
     assert "adminSidebar?.classList.toggle(\"collapsed\")" in content_js or "adminSidebar?.classList.toggle('collapsed')" in content_js or "collapsed" in content_js, "Lógica de colapso ausente em admin.js"
 
+print(f"\n{GREEN}📦 Testes de Migração para MySQL & Hospedagem cPanel (PHP 8.x PDO):{RESET}")
+
+@test("Schema SQL com 5 tabelas relacionais e ON DELETE CASCADE")
+def test_mysql_schema_integrity():
+    schema_path = os.path.join(ROOT_DIR, "database", "schema.sql")
+    assert os.path.isfile(schema_path), "Arquivo database/schema.sql ausente"
+    with open(schema_path, "r", encoding="utf-8") as f:
+        sql = f.read()
+    
+    for table in ["users", "subscriptions", "invoices", "plans", "settings"]:
+        assert f"CREATE TABLE IF NOT EXISTS `{table}`" in sql, f"Tabela {table} ausente no schema SQL"
+    
+    assert "ON DELETE CASCADE" in sql, "Cláusula ON DELETE CASCADE ausente no schema"
+    assert "FT" in sql and "AI" in sql, "Formato FT[ANO]AIXXX ausente no schema"
+    assert "usr_admin_megason" in sql, "Administrador padrão ausente no seed SQL"
+
+@test("Conexão PDO e Utilitários de Segurança CORS/Token")
+def test_php_db_and_cors_config():
+    db_path = os.path.join(ROOT_DIR, "api", "config", "db.php")
+    cors_path = os.path.join(ROOT_DIR, "api", "config", "cors.php")
+    htaccess_path = os.path.join(ROOT_DIR, "api", "config", ".htaccess")
+    
+    assert os.path.isfile(db_path), "api/config/db.php ausente"
+    assert os.path.isfile(cors_path), "api/config/cors.php ausente"
+    assert os.path.isfile(htaccess_path), "api/config/.htaccess ausente"
+    
+    with open(db_path, "r", encoding="utf-8") as f:
+        db_code = f.read()
+    assert "PDO" in db_code and "utf8mb4" in db_code, "Configuração PDO utf8mb4 ausente"
+
+    with open(htaccess_path, "r", encoding="utf-8") as f:
+        htaccess_code = f.read()
+    assert "db.php" in htaccess_code and "Deny from all" in htaccess_code, "Bloqueio de segurança em api/config/.htaccess ausente"
+
+@test("Endpoints Nativos PHP 8.x da API REST")
+def test_php_api_endpoints_exist():
+    endpoints = ["auth.php", "subscriptions.php", "invoices.php", "customers.php", "plans.php", "settings.php"]
+    for ep in endpoints:
+        ep_path = os.path.join(ROOT_DIR, "api", ep)
+        assert os.path.isfile(ep_path), f"Endpoint api/{ep} ausente"
+        with open(ep_path, "r", encoding="utf-8") as f:
+            code = f.read()
+        assert "getDbConnection()" in code, f"Endpoint api/{ep} não chama getDbConnection()"
+
+@test("Cliente REST Frontend (js/services/api.js) e Guia cPanel")
+def test_frontend_api_and_guide():
+    api_js_path = os.path.join(ROOT_DIR, "js", "services", "api.js")
+    guide_path = os.path.join(ROOT_DIR, "CPANEL_DEPLOY_GUIDE.md")
+    
+    assert os.path.isfile(api_js_path), "js/services/api.js ausente"
+    assert os.path.isfile(guide_path), "CPANEL_DEPLOY_GUIDE.md ausente"
+    
+    with open(api_js_path, "r", encoding="utf-8") as f:
+        api_code = f.read()
+    assert "subscriptionsApi" in api_code, "subscriptionsApi ausente em api.js"
+    assert "customersApi" in api_code, "customersApi ausente em api.js"
+    assert "plansApi" in api_code, "plansApi ausente em api.js"
+    assert "settingsApi" in api_code, "settingsApi ausente em api.js"
+
+
 
 # -----------------------------------------------------------------------------
 # Resumo Final

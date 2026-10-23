@@ -15,6 +15,7 @@ import {
   deleteDoc,
   serverTimestamp
 } from "./firebase.js";
+import { plansApi } from "./api.js";
 
 export const SHARED_FEATURES = [
   "Modelos avançados de IA (GPT-6 Astra)",
@@ -95,6 +96,29 @@ export function getLoadedPlans() {
  * @returns {Promise<Array>}
  */
 export async function fetchDynamicPlans() {
+  // 1. Tenta API Nativa MySQL / PHP no cPanel
+  try {
+    const res = await plansApi.list();
+    if (res && res.success && Array.isArray(res.plans) && res.plans.length > 0) {
+      dynamicPlansCache = res.plans.map(p => ({
+        id: p.id,
+        name: p.name || `${p.duration_days || p.durationDays} Dias`,
+        durationLabel: p.duration_label || p.durationLabel || `${p.duration_days || p.durationDays} Dias`,
+        durationDays: Number(p.duration_days || p.durationDays) || 30,
+        price: Number(p.price) || 300,
+        currency: "MZN",
+        featured: Boolean(p.is_featured || p.featured),
+        badge: p.badge || null,
+        savings: p.badge || null,
+        features: Array.isArray(p.features) && p.features.length > 0 ? p.features : SHARED_FEATURES
+      }));
+      dynamicPlansCache.sort((a, b) => a.durationDays - b.durationDays);
+      return dynamicPlansCache;
+    }
+  } catch (apiErr) {
+    // Silencioso se estiver offline ou em ambiente sem PHP, prossegue para Firestore/Cache
+  }
+
   if (!isFirebaseConfigured() || !db) {
     return OFFICIAL_PLANS;
   }
@@ -143,10 +167,6 @@ export async function fetchDynamicPlans() {
  * @returns {Promise<object>}
  */
 export async function savePlanToFirestore(planData) {
-  if (!isFirebaseConfigured() || !db) {
-    throw new Error("A Central MEGASON Cloud não está conectada.");
-  }
-
   const durationDays = parseInt(planData.durationDays, 10);
   const price = parseFloat(planData.price);
 
@@ -160,6 +180,48 @@ export async function savePlanToFirestore(planData) {
   const planId = planData.id 
     ? String(planData.id).trim().toLowerCase().replace(/[^a-z0-9_-]/g, "-") 
     : `plan-${durationDays}d`;
+
+  // 1. Tenta API Nativa MySQL / PHP
+  try {
+    const res = await plansApi.save({
+      id: planId,
+      name: planData.name ? String(planData.name).trim() : `${durationDays} Dias`,
+      durationDays,
+      durationLabel: planData.durationLabel ? String(planData.durationLabel).trim() : `${durationDays} Dias`,
+      price,
+      badge: planData.badge ? String(planData.badge).trim() : null,
+      isFeatured: Boolean(planData.featured),
+      features: Array.isArray(planData.features) && planData.features.length > 0 ? planData.features : SHARED_FEATURES
+    });
+    if (res && res.success) {
+      await fetchDynamicPlans();
+      return { id: planId, ...planData };
+    }
+  } catch (apiErr) {
+    if (apiErr.message && !apiErr.message.includes("Failed to fetch") && !apiErr.message.includes("404")) {
+      throw apiErr;
+    }
+  }
+
+  if (!isFirebaseConfigured() || !db) {
+    // Atualiza cache local
+    const record = {
+      id: planId,
+      name: planData.name ? String(planData.name).trim() : `${durationDays} Dias`,
+      durationLabel: planData.durationLabel ? String(planData.durationLabel).trim() : `${durationDays} Dias`,
+      durationDays,
+      price,
+      currency: "MZN",
+      featured: Boolean(planData.featured),
+      badge: planData.badge ? String(planData.badge).trim() : null,
+      savings: planData.savings ? String(planData.savings).trim() : null,
+      features: Array.isArray(planData.features) && planData.features.length > 0 ? planData.features : SHARED_FEATURES
+    };
+    const idx = dynamicPlansCache.findIndex(p => p.id === planId);
+    if (idx !== -1) dynamicPlansCache[idx] = record;
+    else dynamicPlansCache.push(record);
+    return record;
+  }
 
   const record = {
     name: planData.name ? String(planData.name).trim() : `${durationDays} Dias`,
@@ -187,12 +249,26 @@ export async function savePlanToFirestore(planData) {
  * @returns {Promise<boolean>}
  */
 export async function deletePlanFromFirestore(planId) {
-  if (!isFirebaseConfigured() || !db) {
-    throw new Error("A Central MEGASON Cloud não está conectada.");
-  }
-
   if (!planId) {
     throw new Error("ID do plano não informado.");
+  }
+
+  // 1. Tenta API Nativa MySQL / PHP
+  try {
+    const res = await plansApi.delete(planId);
+    if (res && res.success) {
+      await fetchDynamicPlans();
+      return true;
+    }
+  } catch (apiErr) {
+    if (apiErr.message && !apiErr.message.includes("Failed to fetch") && !apiErr.message.includes("404")) {
+      throw apiErr;
+    }
+  }
+
+  if (!isFirebaseConfigured() || !db) {
+    dynamicPlansCache = dynamicPlansCache.filter(p => p.id !== planId);
+    return true;
   }
 
   const planRef = doc(db, "plans", planId);
@@ -207,6 +283,17 @@ export async function deletePlanFromFirestore(planId) {
  * @returns {Promise<void>}
  */
 export async function seedOfficialPlansToFirestore() {
+  // 1. Tenta API Nativa MySQL / PHP
+  try {
+    const res = await plansApi.seed();
+    if (res && res.success) {
+      await fetchDynamicPlans();
+      return;
+    }
+  } catch (apiErr) {
+    // Prossegue para Firestore
+  }
+
   if (!isFirebaseConfigured() || !db) {
     throw new Error("A Central MEGASON Cloud não está conectada.");
   }

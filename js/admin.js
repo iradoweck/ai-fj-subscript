@@ -29,6 +29,7 @@ import {
   adminAssignPlanToCustomer,
   deleteCustomerCascade
 } from "./services/subscriptions.js";
+import { settingsApi } from "./services/api.js";
 
 import {
   buildWhatsAppInvoiceUrl,
@@ -547,6 +548,9 @@ function setupEventListeners() {
     }
   });
 
+  // Diagnóstico e Teste de Conexão com o Banco MySQL
+  document.getElementById("btn-test-db-connection")?.addEventListener("click", handleTestDbConnection);
+
   // Submissão do Cadastro de Cliente pelo Administrador
   formAdminCreateClient?.addEventListener("submit", handleAdminCreateClient);
 
@@ -885,6 +889,15 @@ async function handleSaveSettings(e) {
       emailjsPublicKey
     };
 
+    // 1. Tenta API Nativa MySQL / PHP no cPanel
+    try {
+      await settingsApi.save(systemSettings);
+    } catch (apiErr) {
+      if (apiErr.message && !apiErr.message.includes("Failed to fetch") && !apiErr.message.includes("404")) {
+        throw apiErr;
+      }
+    }
+
     if (isFirebaseConfigured() && db) {
       const settingsRef = doc(db, "settings", "public");
       await setDoc(settingsRef, {
@@ -911,6 +924,16 @@ async function handleSaveSettings(e) {
  */
 async function loadSettingsData() {
   try {
+    // 1. Tenta API Nativa MySQL / PHP no cPanel
+    try {
+      const res = await settingsApi.get();
+      if (res && res.success && res.settings) {
+        systemSettings = Object.assign(systemSettings, res.settings);
+      }
+    } catch (apiErr) {
+      // Segue para Firestore/LocalStorage
+    }
+
     if (isFirebaseConfigured() && db) {
       const settingsRef = doc(db, "settings", "public");
       const snap = await getDoc(settingsRef);
@@ -951,6 +974,73 @@ async function loadSettingsData() {
     renderSettingsForm();
   } catch (err) {
     console.warn("Aviso ao carregar configurações públicas:", err);
+  }
+}
+
+/**
+ * Executa o teste de diagnóstico da base de dados MySQL em tempo real
+ */
+async function handleTestDbConnection() {
+  const btn = document.getElementById("btn-test-db-connection");
+  const resultBox = document.getElementById("db-diagnostic-result");
+  if (!resultBox) return;
+
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "A testar...";
+  }
+
+  resultBox.style.display = "block";
+  resultBox.style.background = "var(--color-bg-subtle)";
+  resultBox.style.border = "1px solid var(--color-border-subtle)";
+  resultBox.style.color = "var(--color-text-primary)";
+  resultBox.innerHTML = `<strong>A verificar conexão com MySQL...</strong>`;
+
+  try {
+    const res = await fetch("../api/test-db.php");
+    const data = await res.json();
+
+    if (data.status === "success") {
+      resultBox.style.background = "#f0fdf4";
+      resultBox.style.border = "1px solid #bbf7d0";
+      resultBox.style.color = "#166534";
+      
+      let tablesHtml = Object.entries(data.tables_summary || {})
+        .map(([tbl, info]) => `<li><code>${tbl}</code>: <strong>${info.total_rows}</strong> registo(s)</li>`)
+        .join("");
+
+      resultBox.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 8px; font-weight: bold; margin-bottom: 6px;">
+          <span style="font-size: 16px;">✔</span> Base de dados conectada e operacional!
+        </div>
+        <div><strong>Base de Dados:</strong> ${data.database_name} (${data.database_host})</div>
+        <div><strong>Versão MySQL:</strong> ${data.mysql_version}</div>
+        <div style="margin-top: 6px;"><strong>Resumo das Tabelas:</strong></div>
+        <ul style="margin: 4px 0 0 16px; padding: 0;">${tablesHtml}</ul>
+      `;
+      showToast("Conexão MySQL bem-sucedida!", "success");
+    } else {
+      throw new Error(data.details || data.message || "Falha na conexão.");
+    }
+  } catch (err) {
+    resultBox.style.background = "#fef2f2";
+    resultBox.style.border = "1px solid #fecaca";
+    resultBox.style.color = "#991b1b";
+    resultBox.innerHTML = `
+      <div style="display: flex; align-items: center; gap: 8px; font-weight: bold; margin-bottom: 4px;">
+        <span style="font-size: 16px;">✖</span> Erro na Conexão MySQL
+      </div>
+      <div>${err.message}</div>
+      <div style="margin-top: 6px; font-size: 11px; color: #7f1d1d;">
+        <strong>Dica:</strong> Se estiver no Laragon, certifique-se de que o botão "Start All" está ativado. No cPanel, verifique as credenciais no arquivo <code>api/config/db.php</code>.
+      </div>
+    `;
+    showToast("Erro ao conectar com MySQL.", "danger");
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = "Testar Conexão Agora";
+    }
   }
 }
 

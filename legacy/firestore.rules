@@ -1,0 +1,115 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Funções Auxiliares de Segurança e RBAC
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Validação estrita de valores oficiais dos planos da MEGASON em Meticais (MZN)
+    // Suporta tanto os 4 planos base quanto planos criados dinamicamente pelo Administrador na coleção /plans
+    function isValidPlanPrice(price) {
+      return price is number && price >= 50 && price <= 50000;
+    }
+
+    function isValidPlanDuration(days) {
+      return days is number && days >= 1 && days <= 730;
+    }
+
+    // Configurações públicas: leitura para todos, escrita estrita para Admin
+    match /settings/public {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Contadores de sequenciais (ex: faturas anuais FT[ANO]AIXXX)
+    match /counters/{counterId} {
+      allow read: if isAuthenticated() || isAdmin();
+      allow write: if isAuthenticated() || isAdmin();
+    }
+
+    // Planos fixos: leitura pública para visitantes, escrita apenas para Admin
+    match /plans/{planId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Perfil do Utilizador
+    match /users/{userId} {
+      // O próprio utilizador e o admin podem ler
+      allow read: if isOwner(userId) || isAdmin();
+      
+      // Criação de perfil: 
+      // 1. O próprio cliente pode criar com role 'customer' ou 'user'
+      // 2. O Administrador pode criar qualquer perfil (incluindo clientes cadastrados manualmente)
+      allow create: if (isOwner(userId) && 
+        request.resource.data.role in ['customer', 'user'] &&
+        (!('status' in request.resource.data) || request.resource.data.status in ['active', null])) || isAdmin();
+        
+      // Actualização: utilizador não pode promover-se a admin nem alterar seu status
+      allow update: if (isOwner(userId) && 
+        request.resource.data.role == resource.data.role && 
+        (!('status' in request.resource.data) || request.resource.data.status == resource.data.status)) || isAdmin();
+        
+      allow delete: if isAdmin();
+    }
+
+    // Subscrições
+    match /subscriptions/{subscriptionId} {
+      allow read: if (isAuthenticated() && resource.data.userId == request.auth.uid) || isAdmin();
+      
+      // Criação de pedido de subscrição:
+      // Cliente: apenas com status 'pending' e preço/duração oficiais validados
+      // Admin: pode criar diretamente subscrições para clientes (ex: vendas assistidas)
+      allow create: if (isAuthenticated() && 
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.status == 'pending' &&
+        isValidPlanPrice(request.resource.data.price) &&
+        isValidPlanDuration(request.resource.data.durationDays)) || isAdmin();
+        
+      // Apenas o Administrador pode aprovar (status: 'active'), suspender ou alterar credenciais/pasta
+      allow update, delete: if isAdmin();
+    }
+
+    // Facturas Internas
+    match /invoices/{invoiceId} {
+      allow read: if (isAuthenticated() && resource.data.userId == request.auth.uid) || isAdmin();
+      
+      // Criação de fatura:
+      // Cliente: apenas status 'pending' e montante compatível com os 4 planos
+      // Admin: pode emitir faturas manuais
+      allow create: if (isAuthenticated() && 
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.status == 'pending' &&
+        isValidPlanPrice(request.resource.data.amount) &&
+        isValidPlanDuration(request.resource.data.durationDays)) || isAdmin();
+        
+      // O utilizador só pode actualizar a fatura para submeter o texto do comprovativo (proofText)
+      // enquanto a fatura estiver 'pending'. É expressamente proibido alterar status, montante ou paidAt!
+      allow update: if (isAuthenticated() && 
+        resource.data.userId == request.auth.uid && 
+        resource.data.status == 'pending' &&
+        request.resource.data.status == resource.data.status &&
+        request.resource.data.amount == resource.data.amount &&
+        request.resource.data.paidAt == resource.data.paidAt) || isAdmin();
+        
+      allow delete: if isAdmin();
+    }
+
+    // Regra padrão de negação (Zero Trust) para qualquer outro caminho não previsto
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
