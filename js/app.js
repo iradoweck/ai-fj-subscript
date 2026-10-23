@@ -27,8 +27,10 @@ import {
   createSubscriptionOrder,
   getUserSubscriptions,
   getUserInvoices,
+  getInvoiceById,
   findOrderByContact,
-  listenToUserSubscription
+  listenToUserSubscription,
+  checkAndGenerateRenewalInvoice
 } from "./services/subscriptions.js";
 
 // Estado global de autenticação em memória
@@ -1051,8 +1053,18 @@ function setupMySubModal() {
     `;
 
     try {
-      const subs = await getUserSubscriptions(currentAuthState.user.uid);
-      const invoices = await getUserInvoices(currentAuthState.user.uid);
+      const userEmail = currentAuthState.user?.email || currentAuthState.profile?.email || null;
+      const subs = await getUserSubscriptions(currentAuthState.user.uid, userEmail);
+      let invoices = await getUserInvoices(currentAuthState.user.uid, userEmail);
+
+      if (subs && subs.length > 0 && subs[0].latestInvoiceId) {
+        if (!invoices || !invoices.some(i => i.id === subs[0].latestInvoiceId || i.invoiceNumber === subs[0].latestInvoiceId)) {
+          const directInv = await getInvoiceById(subs[0].latestInvoiceId);
+          if (directInv) {
+            invoices = [directInv, ...(invoices || [])];
+          }
+        }
+      }
 
       if (!subs || subs.length === 0) {
         modalBody.innerHTML = `
@@ -1436,11 +1448,27 @@ async function loadCustomerDashboardData(state) {
   }
 
   try {
-    const subs = await getUserSubscriptions(state.user.uid);
-    const invoices = await getUserInvoices(state.user.uid);
+    const userEmail = state.user?.email || profile.email || null;
+    const subs = await getUserSubscriptions(state.user.uid, userEmail);
+    let invoices = await getUserInvoices(state.user.uid, userEmail);
 
     if (subs && subs.length > 0) {
       const activeSub = subs[0];
+
+      // Garante que a fatura associada à subscrição ativa seja sempre carregada no histórico
+      if (activeSub.latestInvoiceId) {
+        const hasLatestInv = invoices && invoices.some(i => i.id === activeSub.latestInvoiceId || i.invoiceNumber === activeSub.latestInvoiceId);
+        if (!hasLatestInv) {
+          try {
+            const directInv = await getInvoiceById(activeSub.latestInvoiceId);
+            if (directInv) {
+              invoices = [directInv, ...(invoices || [])];
+            }
+          } catch (e) {
+            console.warn("Aviso ao buscar fatura ativa direta:", e);
+          }
+        }
+      }
       if (planNameEl) planNameEl.textContent = `Plano ${activeSub.planName || "ChatGPT Plus"}`;
 
       const statusMap = {
@@ -1512,9 +1540,37 @@ async function loadCustomerDashboardData(state) {
         }
       }
 
-      // 4. Aviso de Renovação em Análise
+      // 4. Aviso de Renovação Antecipada ou Em Conferência
       if (renewalNoticeEl) {
-        if (activeSub.pendingRenewal) {
+        if (activeSub.status === "active" && activeSub.endDate) {
+          const endMs = new Date(activeSub.endDate).getTime();
+          const daysLeft = Math.max(0, Math.ceil((endMs - Date.now()) / (1000 * 60 * 60 * 24)));
+
+          if (daysLeft <= 7) {
+            // Verifica / gera automaticamente a fatura do próximo ciclo a 7 dias da expiração
+            checkAndGenerateRenewalInvoice(activeSub).then(autoInv => {
+              if (autoInv && renewalNoticeEl) {
+                renewalNoticeEl.style.display = "block";
+                const invNum = autoInv.invoiceNumber || autoInv.id;
+                renewalNoticeEl.innerHTML = `
+                  <span style="font-weight: 700;">Atenção:</span> A sua subscrição expira em <strong>${daysLeft} dia${daysLeft === 1 ? "" : "s"}</strong>.
+                  A sua fatura de renovação <strong>#${invNum}</strong> (${autoInv.amount} MT) já foi emitida para o próximo período.
+                  Efetue a transferência via M-Pesa, E-Mola ou Absa para garantir continuidade sem corte de acesso.
+                `;
+                if (btnQuickRenew) {
+                  btnQuickRenew.textContent = `Pagar Fatura #${invNum}`;
+                }
+              }
+            }).catch(e => console.warn("Aviso ao checar fatura automática:", e));
+          } else if (activeSub.pendingRenewal) {
+            renewalNoticeEl.style.display = "block";
+            const renPlan = activeSub.pendingRenewal.planName || "Plano";
+            const renInv = activeSub.pendingRenewal.invoiceId || "";
+            renewalNoticeEl.innerHTML = `<span style="font-weight: 700;">Aviso:</span> Pedido de renovação do <strong>${renPlan}</strong> (${renInv}) em conferência pelo operador. Os dias adicionais serão somados à sua vigência assim que aprovado.`;
+          } else {
+            renewalNoticeEl.style.display = "none";
+          }
+        } else if (activeSub.pendingRenewal) {
           renewalNoticeEl.style.display = "block";
           const renPlan = activeSub.pendingRenewal.planName || "Plano";
           const renInv = activeSub.pendingRenewal.invoiceId || "";

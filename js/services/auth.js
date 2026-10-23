@@ -16,10 +16,16 @@ import {
   sendPasswordResetEmail,
   signInWithPopup,
   updateProfile,
+  updatePassword,
+  updateEmail,
   doc,
   getDoc,
   setDoc,
   updateDoc,
+  collection,
+  query,
+  where,
+  getDocs,
   serverTimestamp
 } from "./firebase.js";
 
@@ -403,6 +409,30 @@ export async function updateUserProfile(uid, { fullName, whatsappNumber, provinc
 
   if (isFirebaseConfigured() && db) {
     await updateDoc(doc(db, "users", uid), updates);
+
+    // Propaga as alterações de nome e whatsapp para subscrições e faturas correspondentes
+    try {
+      const syncData = {};
+      if (updates.fullName) syncData.customerName = updates.fullName;
+      if (updates.whatsappNumber) syncData.customerWhatsapp = updates.whatsappNumber;
+
+      if (Object.keys(syncData).length > 0) {
+        // Atualiza subscrições do utilizador
+        const subSnap = await getDocs(query(collection(db, "subscriptions"), where("userId", "==", uid)));
+        subSnap.forEach(d => {
+          updateDoc(doc(db, "subscriptions", d.id), syncData).catch(() => {});
+        });
+
+        // Atualiza faturas do utilizador
+        const invSnap = await getDocs(query(collection(db, "invoices"), where("userId", "==", uid)));
+        invSnap.forEach(d => {
+          updateDoc(doc(db, "invoices", d.id), syncData).catch(() => {});
+        });
+      }
+    } catch (syncErr) {
+      console.warn("Aviso ao propagar dados atualizados do perfil:", syncErr);
+    }
+
     return updates;
   }
 
@@ -413,5 +443,122 @@ export async function updateUserProfile(uid, { fullName, whatsappNumber, provinc
     Object.assign(user, updates);
     localStorage.setItem("megason_demo_user", JSON.stringify(user));
   }
+
+  // Sincroniza mocks de subscrições e faturas no modo demo
+  try {
+    const rawSubs = localStorage.getItem("megason_demo_subscriptions");
+    if (rawSubs) {
+      const subs = JSON.parse(rawSubs);
+      subs.forEach(s => {
+        if (s.userId === uid) {
+          if (updates.fullName) s.customerName = updates.fullName;
+          if (updates.whatsappNumber) s.customerWhatsapp = updates.whatsappNumber;
+        }
+      });
+      localStorage.setItem("megason_demo_subscriptions", JSON.stringify(subs));
+    }
+
+    const rawInvs = localStorage.getItem("megason_demo_invoices");
+    if (rawInvs) {
+      const invs = JSON.parse(rawInvs);
+      invs.forEach(i => {
+        if (i.userId === uid) {
+          if (updates.fullName) i.customerName = updates.fullName;
+          if (updates.whatsappNumber) i.customerWhatsapp = updates.whatsappNumber;
+        }
+      });
+      localStorage.setItem("megason_demo_invoices", JSON.stringify(invs));
+    }
+  } catch {}
+
   return updates;
+}
+
+/**
+ * Atualiza os dados de perfil pessoal do Administrador
+ * @param {string} uid
+ * @param {object} param1 { fullName, whatsappNumber, roleTitle }
+ * @returns {Promise<object>}
+ */
+export async function updateAdminProfile(uid, { fullName, whatsappNumber, roleTitle }) {
+  if (!uid) throw new Error("ID do administrador é obrigatório.");
+
+  const updates = {
+    updatedAt: isFirebaseConfigured() && db ? serverTimestamp() : new Date().toISOString()
+  };
+
+  if (fullName && fullName.trim()) updates.fullName = fullName.trim();
+  if (roleTitle && roleTitle.trim()) updates.roleTitle = roleTitle.trim();
+
+  if (whatsappNumber) {
+    const normalized = normalizeMozambicanPhone(whatsappNumber);
+    if (!normalized) {
+      throw new Error("Número de WhatsApp moçambicano inválido. Use 9 dígitos (ex: 84XXXXXXX).");
+    }
+    updates.whatsappNumber = normalized;
+  }
+
+  if (isFirebaseConfigured() && auth && auth.currentUser) {
+    try {
+      if (updates.fullName) {
+        await updateProfile(auth.currentUser, { displayName: updates.fullName });
+      }
+    } catch (e) {
+      console.warn("Aviso ao atualizar displayName do admin no Auth:", e);
+    }
+
+    if (db) {
+      await setDoc(doc(db, "users", uid), {
+        ...updates,
+        role: "admin"
+      }, { merge: true });
+    }
+  }
+
+  // Atualiza estado local / modo demo
+  const stored = localStorage.getItem("megason_demo_user");
+  if (stored) {
+    try {
+      const u = JSON.parse(stored);
+      Object.assign(u, updates);
+      localStorage.setItem("megason_demo_user", JSON.stringify(u));
+    } catch {}
+  }
+
+  // Armazena perfil persistente do admin localmente
+  const adminProfile = {
+    uid,
+    fullName: updates.fullName || "Admin MEGASON",
+    whatsappNumber: updates.whatsappNumber || "842256366",
+    roleTitle: updates.roleTitle || "Administrador Geral & Operações",
+    updatedAt: new Date().toISOString()
+  };
+  localStorage.setItem("megason_admin_profile", JSON.stringify(adminProfile));
+
+  return updates;
+}
+
+/**
+ * Altera a senha do administrador
+ * @param {string} newPassword
+ * @returns {Promise<void>}
+ */
+export async function changeAdminPassword(newPassword) {
+  if (!newPassword || newPassword.length < 6) {
+    throw new Error("A nova senha deve ter no mínimo 6 caracteres.");
+  }
+
+  if (isFirebaseConfigured() && auth && auth.currentUser) {
+    await updatePassword(auth.currentUser, newPassword);
+  } else {
+    // Modo demonstração
+    const stored = localStorage.getItem("megason_demo_user");
+    if (stored) {
+      try {
+        const u = JSON.parse(stored);
+        u.password = newPassword;
+        localStorage.setItem("megason_demo_user", JSON.stringify(u));
+      } catch {}
+    }
+  }
 }

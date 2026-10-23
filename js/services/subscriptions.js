@@ -13,6 +13,7 @@ import {
   getDocs, 
   setDoc, 
   updateDoc, 
+  deleteDoc,
   query, 
   where, 
   orderBy, 
@@ -473,12 +474,15 @@ export async function createSubscriptionOrder({
 }
 
 /**
- * Consulta todas as subscrições pertencentes a um utilizador (Prioriza as Ativas)
+ * Consulta todas as subscrições pertencentes a um utilizador (Prioriza as Ativas e busca por userId ou Email)
  * @param {string} userId 
+ * @param {string} [userEmail]
  * @returns {Promise<Array>}
  */
-export async function getUserSubscriptions(userId) {
-  if (!userId) return [];
+export async function getUserSubscriptions(userId, userEmail = null) {
+  if (!userId && !userEmail) return [];
+
+  const subMap = new Map();
 
   const sortPriority = (list) => {
     return list.sort((a, b) => {
@@ -495,13 +499,34 @@ export async function getUserSubscriptions(userId) {
 
   if (isFirebaseConfigured() && db) {
     try {
-      const q = query(
-        collection(db, "subscriptions"),
-        where("userId", "==", userId)
-      );
-      const snapshot = await getDocs(q);
-      const list = [];
-      snapshot.forEach(docSnap => list.push(docSnap.data()));
+      if (userId) {
+        try {
+          const q = query(collection(db, "subscriptions"), where("userId", "==", userId));
+          const snapshot = await getDocs(q);
+          snapshot.forEach(docSnap => subMap.set(docSnap.id, { id: docSnap.id, ...docSnap.data() }));
+        } catch (e) {
+          console.warn("Aviso ao buscar subscrições por userId:", e);
+        }
+      }
+
+      if (userEmail) {
+        try {
+          const cleanEmail = userEmail.trim().toLowerCase();
+          const qEmail = query(collection(db, "subscriptions"), where("customerEmail", "==", cleanEmail));
+          const snapshotEmail = await getDocs(qEmail);
+          snapshotEmail.forEach(docSnap => {
+            const data = docSnap.data();
+            subMap.set(docSnap.id, { id: docSnap.id, ...data });
+            if (userId && data.userId !== userId) {
+              try { updateDoc(doc(db, "subscriptions", docSnap.id), { userId }); } catch {}
+            }
+          });
+        } catch (e) {
+          console.warn("Aviso ao buscar subscrições por email:", e);
+        }
+      }
+
+      const list = Array.from(subMap.values());
       return sortPriority(list);
     } catch (err) {
       console.warn("Erro ao buscar subscrições remotas:", err);
@@ -510,29 +535,64 @@ export async function getUserSubscriptions(userId) {
 
   // Modo Demonstração
   const demoList = getMockData("megason_demo_subscriptions");
-  const userSubs = demoList.filter(item => item.userId === userId);
-  return sortPriority(userSubs);
+  const filtered = demoList.filter(item => {
+    const matchId = userId && item.userId === userId;
+    const matchEmail = userEmail && item.customerEmail && item.customerEmail.toLowerCase() === userEmail.toLowerCase();
+    return matchId || matchEmail;
+  });
+  return sortPriority(filtered);
 }
 
 /**
- * Consulta todas as faturas pertencentes a um utilizador
+ * Consulta todas as faturas pertencentes a um utilizador (Sem dependência de índice composto, busca por userId ou Email)
  * @param {string} userId 
+ * @param {string} [userEmail]
  * @returns {Promise<Array>}
  */
-export async function getUserInvoices(userId) {
-  if (!userId) return [];
+export async function getUserInvoices(userId, userEmail = null) {
+  if (!userId && !userEmail) return [];
+
+  const invoiceMap = new Map();
+
+  const sortInvoices = (list) => {
+    return list.sort((a, b) => {
+      const dateA = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : new Date(a.createdAt || 0).getTime();
+      const dateB = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : new Date(b.createdAt || 0).getTime();
+      return dateB - dateA;
+    });
+  };
 
   if (isFirebaseConfigured() && db) {
     try {
-      const q = query(
-        collection(db, "invoices"),
-        where("userId", "==", userId),
-        orderBy("createdAt", "desc")
-      );
-      const snapshot = await getDocs(q);
-      const list = [];
-      snapshot.forEach(docSnap => list.push(docSnap.data()));
-      return list;
+      if (userId) {
+        try {
+          const q = query(collection(db, "invoices"), where("userId", "==", userId));
+          const snapshot = await getDocs(q);
+          snapshot.forEach(docSnap => invoiceMap.set(docSnap.id, { id: docSnap.id, ...docSnap.data() }));
+        } catch (e) {
+          console.warn("Aviso ao buscar faturas por userId:", e);
+        }
+      }
+
+      if (userEmail) {
+        try {
+          const cleanEmail = userEmail.trim().toLowerCase();
+          const qEmail = query(collection(db, "invoices"), where("customerEmail", "==", cleanEmail));
+          const snapshotEmail = await getDocs(qEmail);
+          snapshotEmail.forEach(docSnap => {
+            const data = docSnap.data();
+            invoiceMap.set(docSnap.id, { id: docSnap.id, ...data });
+            if (userId && data.userId !== userId) {
+              try { updateDoc(doc(db, "invoices", docSnap.id), { userId }); } catch {}
+            }
+          });
+        } catch (e) {
+          console.warn("Aviso ao buscar faturas por email:", e);
+        }
+      }
+
+      const list = Array.from(invoiceMap.values());
+      return sortInvoices(list);
     } catch (err) {
       console.warn("Erro ao buscar faturas remotas:", err);
     }
@@ -540,7 +600,12 @@ export async function getUserInvoices(userId) {
 
   // Modo Demonstração
   const demoList = getMockData("megason_demo_invoices");
-  return demoList.filter(item => item.userId === userId);
+  const filtered = demoList.filter(item => {
+    const matchId = userId && item.userId === userId;
+    const matchEmail = userEmail && item.customerEmail && item.customerEmail.toLowerCase() === userEmail.toLowerCase();
+    return matchId || matchEmail;
+  });
+  return sortInvoices(filtered);
 }
 
 /**
@@ -1300,9 +1365,10 @@ export async function cancelSubscriptionOrder({ subscriptionId, invoiceId, admin
  * @returns {Promise<object>}
  */
 export async function getFinancialMetrics() {
-  const [subscriptions, invoices] = await Promise.all([
+  const [subscriptions, invoices, customers] = await Promise.all([
     getAllSubscriptions("all"),
-    getAllInvoices("all")
+    getAllInvoices("all"),
+    getAllCustomers()
   ]);
 
   let totalReceived = 0;
@@ -1322,6 +1388,7 @@ export async function getFinancialMetrics() {
   const activeSubscribers = subscriptions.filter(s => s.status === "active").length;
   const pendingOrders = subscriptions.filter(s => s.status === "pending").length;
   const suspendedOrders = subscriptions.filter(s => s.status === "suspended").length;
+  const totalCustomers = customers ? customers.length : (new Set(subscriptions.map(s => (s.customerEmail || s.userId).toLowerCase()))).size;
 
   return {
     totalReceived,
@@ -1329,9 +1396,605 @@ export async function getFinancialMetrics() {
     activeSubscribers,
     pendingOrders,
     suspendedOrders,
+    totalCustomers,
     totalSubscriptions: subscriptions.length,
     totalInvoices: invoices.length
   };
+}
+
+/**
+ * Consulta a lista consolidada de todos os clientes cadastrados no sistema
+ * Agrupa dados cadastrais, subscrição ativa e faturas
+ * @returns {Promise<Array>}
+ */
+export async function getAllCustomers() {
+  const customerMap = new Map();
+
+  if (isFirebaseConfigured() && db) {
+    try {
+      // 1. Busca todos os usuários na coleção 'users'
+      try {
+        const usersSnap = await getDocs(collection(db, "users"));
+        usersSnap.forEach(d => {
+          const u = d.data();
+          if (u.role !== "admin") {
+            const key = (u.email || d.id).toLowerCase();
+            customerMap.set(key, {
+              id: d.id,
+              userId: d.id,
+              clientCode: u.clientCode || `AI-${d.id.slice(0, 4).toUpperCase()}`,
+              fullName: u.fullName || "Cliente",
+              email: u.email || "",
+              whatsappNumber: u.whatsappNumber || "",
+              province: u.province || "Moçambique",
+              district: u.district || "",
+              neighborhood: u.neighborhood || "",
+              createdAt: u.createdAt || null,
+              subscriptions: [],
+              invoices: []
+            });
+          }
+        });
+      } catch (err) {
+        console.warn("Aviso ao ler coleção users:", err);
+      }
+
+      // 2. Busca subscrições e correlaciona
+      const subs = await getAllSubscriptions("all");
+      subs.forEach(s => {
+        const key = (s.customerEmail || s.userId || s.id).toLowerCase();
+        if (!customerMap.has(key)) {
+          customerMap.set(key, {
+            id: s.userId || s.id,
+            userId: s.userId || s.id,
+            clientCode: s.clientCode || (s.userId && s.userId.startsWith("AI-") ? s.userId : `AI-${s.id.slice(0, 4).toUpperCase()}`),
+            fullName: s.customerName || "Cliente",
+            email: s.customerEmail || "",
+            whatsappNumber: s.customerWhatsapp || "",
+            province: "Moçambique",
+            createdAt: s.createdAt || null,
+            subscriptions: [],
+            invoices: []
+          });
+        }
+        customerMap.get(key).subscriptions.push(s);
+      });
+
+      // 3. Busca faturas e correlaciona
+      const invs = await getAllInvoices("all");
+      invs.forEach(inv => {
+        const key = (inv.customerEmail || inv.userId || "").toLowerCase();
+        if (key && customerMap.has(key)) {
+          customerMap.get(key).invoices.push(inv);
+        }
+      });
+
+      return Array.from(customerMap.values()).map(c => {
+        // Encontra subscrição ativa prioritária ou a mais recente
+        const activeSub = c.subscriptions.find(s => s.status === "active") || c.subscriptions[0] || null;
+        const paidInvoices = c.invoices.filter(i => i.status === "paid");
+        const totalPaid = paidInvoices.reduce((acc, inv) => acc + (Number(inv.amount) || 0), 0);
+        const folder = activeSub?.folderName || c.folderName || "";
+
+        return {
+          ...c,
+          name: c.fullName || "Cliente",
+          whatsapp: c.whatsappNumber || "",
+          folderName: folder,
+          activeSubscription: activeSub,
+          totalSubscriptions: c.subscriptions.length,
+          totalInvoices: c.invoices.length,
+          invoicesCount: c.invoices.length,
+          paidInvoicesCount: paidInvoices.length,
+          totalPaid,
+          status: activeSub ? activeSub.status : "none"
+        };
+      });
+
+    } catch (err) {
+      console.warn("Erro ao consolidar clientes no Firestore:", err);
+    }
+  }
+
+  // Modo Demonstração
+  const demoUsers = [];
+  const demoUserRaw = localStorage.getItem("megason_demo_user");
+  if (demoUserRaw) {
+    try {
+      const u = JSON.parse(demoUserRaw);
+      if (u.role !== "admin") demoUsers.push(u);
+    } catch {}
+  }
+
+  const demoSubs = getMockData("megason_demo_subscriptions");
+  const demoInvs = getMockData("megason_demo_invoices");
+
+  demoUsers.forEach(u => {
+    const key = (u.email || u.uid).toLowerCase();
+    customerMap.set(key, {
+      id: u.uid,
+      userId: u.uid,
+      clientCode: u.clientCode || "AI-DEMO",
+      fullName: u.fullName || "Cliente Demo",
+      email: u.email || "",
+      whatsappNumber: u.whatsappNumber || "",
+      province: u.province || "Maputo Cidade",
+      createdAt: u.createdAt || null,
+      subscriptions: [],
+      invoices: []
+    });
+  });
+
+  demoSubs.forEach(s => {
+    const key = (s.customerEmail || s.userId || s.id).toLowerCase();
+    if (!customerMap.has(key)) {
+      customerMap.set(key, {
+        id: s.userId || s.id,
+        userId: s.userId || s.id,
+        clientCode: s.clientCode || "AI-DEMO",
+        fullName: s.customerName || "Cliente",
+        email: s.customerEmail || "",
+        whatsappNumber: s.customerWhatsapp || "",
+        province: "Maputo Cidade",
+        createdAt: s.createdAt || null,
+        subscriptions: [],
+        invoices: []
+      });
+    }
+    customerMap.get(key).subscriptions.push(s);
+  });
+
+  demoInvs.forEach(i => {
+    const key = (i.customerEmail || i.userId || "").toLowerCase();
+    if (key && customerMap.has(key)) {
+      customerMap.get(key).invoices.push(i);
+    }
+  });
+
+  return Array.from(customerMap.values()).map(c => {
+    const activeSub = c.subscriptions.find(s => s.status === "active") || c.subscriptions[0] || null;
+    const paidInvoices = c.invoices.filter(i => i.status === "paid");
+    const totalPaid = paidInvoices.reduce((acc, inv) => acc + (Number(inv.amount) || 0), 0);
+    const folder = activeSub?.folderName || c.folderName || "";
+
+    return {
+      ...c,
+      name: c.fullName || "Cliente",
+      whatsapp: c.whatsappNumber || "",
+      folderName: folder,
+      activeSubscription: activeSub,
+      totalSubscriptions: c.subscriptions.length,
+      totalInvoices: c.invoices.length,
+      invoicesCount: c.invoices.length,
+      paidInvoicesCount: paidInvoices.length,
+      totalPaid,
+      status: activeSub ? activeSub.status : "none"
+    };
+  });
+}
+
+/**
+ * Atualiza os dados cadastrais e de acesso de um cliente pelo Administrador
+ * @param {object} params
+ * @returns {Promise<object>}
+ */
+export async function adminUpdateCustomer({
+  userId,
+  customerEmail,
+  fullName,
+  whatsappNumber,
+  province,
+  folderName,
+  accessCredentials,
+  adminNotes
+}) {
+  if (!userId && !customerEmail) throw new Error("ID do cliente ou e-mail é obrigatório.");
+
+  const updates = {
+    updatedAt: isFirebaseConfigured() && db ? serverTimestamp() : new Date().toISOString()
+  };
+
+  if (fullName && fullName.trim()) updates.fullName = fullName.trim();
+  if (whatsappNumber && whatsappNumber.trim()) updates.whatsappNumber = whatsappNumber.trim();
+  if (province) updates.province = province;
+  if (adminNotes !== undefined) updates.adminNotes = adminNotes.trim();
+
+  if (isFirebaseConfigured() && db) {
+    if (userId) {
+      try {
+        await setDoc(doc(db, "users", userId), updates, { merge: true });
+      } catch (e) {
+        console.warn("Aviso ao atualizar users:", e);
+      }
+    }
+
+    try {
+      const subUpdates = {};
+      if (updates.fullName) subUpdates.customerName = updates.fullName;
+      if (updates.whatsappNumber) subUpdates.customerWhatsapp = updates.whatsappNumber;
+      if (folderName) subUpdates.folderName = folderName.trim();
+      if (accessCredentials) subUpdates.accessCredentials = accessCredentials.trim();
+      if (adminNotes !== undefined) subUpdates.adminNotes = adminNotes.trim();
+
+      const qSubs = userId 
+        ? query(collection(db, "subscriptions"), where("userId", "==", userId))
+        : query(collection(db, "subscriptions"), where("customerEmail", "==", customerEmail.toLowerCase()));
+      
+      const snap = await getDocs(qSubs);
+      snap.forEach(d => {
+        updateDoc(doc(db, "subscriptions", d.id), subUpdates).catch(() => {});
+      });
+    } catch (e) {
+      console.warn("Aviso ao sincronizar subscrições:", e);
+    }
+
+    try {
+      const invUpdates = {};
+      if (updates.fullName) invUpdates.customerName = updates.fullName;
+      if (updates.whatsappNumber) invUpdates.customerWhatsapp = updates.whatsappNumber;
+
+      const qInvs = userId 
+        ? query(collection(db, "invoices"), where("userId", "==", userId))
+        : query(collection(db, "invoices"), where("customerEmail", "==", customerEmail.toLowerCase()));
+      
+      const snapInv = await getDocs(qInvs);
+      snapInv.forEach(d => {
+        updateDoc(doc(db, "invoices", d.id), invUpdates).catch(() => {});
+      });
+    } catch (e) {
+      console.warn("Aviso ao sincronizar faturas:", e);
+    }
+  } else {
+    const demoUsers = getMockData("megason_demo_user");
+    if (demoUsers && (demoUsers.uid === userId || demoUsers.email === customerEmail)) {
+      Object.assign(demoUsers, updates);
+      localStorage.setItem("megason_demo_user", JSON.stringify(demoUsers));
+    }
+
+    const demoSubs = getMockData("megason_demo_subscriptions");
+    demoSubs.forEach(s => {
+      if (s.userId === userId || (customerEmail && s.customerEmail && s.customerEmail.toLowerCase() === customerEmail.toLowerCase())) {
+        if (updates.fullName) s.customerName = updates.fullName;
+        if (updates.whatsappNumber) s.customerWhatsapp = updates.whatsappNumber;
+        if (folderName) s.folderName = folderName.trim();
+        if (accessCredentials) s.accessCredentials = accessCredentials.trim();
+        if (adminNotes !== undefined) s.adminNotes = adminNotes.trim();
+      }
+    });
+    localStorage.setItem("megason_demo_subscriptions", JSON.stringify(demoSubs));
+
+    const demoInvs = getMockData("megason_demo_invoices");
+    demoInvs.forEach(i => {
+      if (i.userId === userId || (customerEmail && i.customerEmail && i.customerEmail.toLowerCase() === customerEmail.toLowerCase())) {
+        if (updates.fullName) i.customerName = updates.fullName;
+        if (updates.whatsappNumber) i.customerWhatsapp = updates.whatsappNumber;
+      }
+    });
+    localStorage.setItem("megason_demo_invoices", JSON.stringify(demoInvs));
+  }
+
+  notifyStateChange("customer_updated", { userId, customerEmail, updates });
+  return updates;
+}
+
+/**
+ * Atribui ou renova diretamente um plano para um cliente existente
+ * @param {object} params
+ * @returns {Promise<object>} Retorna { subscription, invoice }
+ */
+export async function adminAssignPlanToCustomer({
+  userId,
+  customerEmail,
+  customerName,
+  customerWhatsapp,
+  clientCode,
+  planId,
+  folderName,
+  accessCredentials,
+  markAsPaid = true,
+  adminNotes = "",
+  adminUid = "admin"
+}) {
+  const plan = getPlanById(planId);
+  if (!plan) throw new Error("Plano selecionado não é válido.");
+
+  const now = new Date();
+  const startDate = now.toISOString();
+  const endDate = new Date(now.getTime() + plan.durationDays * 24 * 60 * 60 * 1000).toISOString();
+  const finalFolder = folderName ? folderName.trim() : `MEGASON - ${(customerName || "Cliente").split(" ")[0]}`;
+  const finalCreds = accessCredentials ? accessCredentials.trim() : "Instruções de acesso fornecidas pela administração.";
+
+  const invoiceId = await getNextInvoiceNumber();
+
+  const subData = {
+    userId: userId || "usr_" + Date.now(),
+    clientCode: clientCode || "AI-CLIENTE",
+    customerName: customerName || "Cliente",
+    customerEmail: (customerEmail || "").toLowerCase(),
+    customerWhatsapp: customerWhatsapp || "",
+    planId: plan.id,
+    planName: plan.name,
+    price: plan.price,
+    currency: "MZN",
+    durationDays: plan.durationDays,
+    status: markAsPaid ? "active" : "pending",
+    folderName: finalFolder,
+    accessCredentials: finalCreds,
+    adminNotes: adminNotes.trim(),
+    latestInvoiceId: invoiceId,
+    startDate: markAsPaid ? startDate : null,
+    endDate: markAsPaid ? endDate : null,
+    approvedAt: markAsPaid ? startDate : null,
+    approvedBy: markAsPaid ? adminUid : null,
+    createdAt: startDate,
+    updatedAt: startDate
+  };
+
+  const invoiceData = {
+    id: invoiceId,
+    invoiceNumber: invoiceId,
+    userId: subData.userId,
+    clientCode: subData.clientCode,
+    customerName: subData.customerName,
+    customerEmail: subData.customerEmail,
+    customerWhatsapp: subData.customerWhatsapp,
+    amount: plan.price,
+    currency: "MZN",
+    planId: plan.id,
+    planName: plan.name,
+    paymentMethod: "M-Pesa",
+    status: markAsPaid ? "paid" : "pending",
+    createdAt: startDate,
+    paidAt: markAsPaid ? startDate : null,
+    confirmedBy: markAsPaid ? adminUid : null
+  };
+
+  if (isFirebaseConfigured() && db) {
+    const subRef = doc(collection(db, "subscriptions"));
+    subData.id = subRef.id;
+    invoiceData.subscriptionId = subRef.id;
+
+    await setDoc(subRef, { ...subData, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+    await setDoc(doc(db, "invoices", invoiceId), { ...invoiceData, createdAt: serverTimestamp() });
+  } else {
+    subData.id = "sub_" + Date.now();
+    invoiceData.subscriptionId = subData.id;
+    saveMockData("megason_demo_subscriptions", subData);
+    saveMockData("megason_demo_invoices", invoiceData);
+  }
+
+  notifyStateChange("order_created", { subscriptionId: subData.id, invoiceId });
+  return { subscription: subData, invoice: invoiceData };
+}
+
+/**
+ * Elimina completamente um cliente e tudo o que lhe relaciona em cascata:
+ * Documento de utilizador, todas as subscrições e todas as faturas financeiras.
+ * @param {object} params { userId, customerEmail }
+ * @returns {Promise<boolean>}
+ */
+export async function deleteCustomerCascade({ userId, customerEmail }) {
+  if (!userId && !customerEmail) {
+    throw new Error("Identificador do cliente ou e-mail é obrigatório para exclusão.");
+  }
+
+  const cleanEmail = customerEmail ? customerEmail.trim().toLowerCase() : null;
+
+  if (isFirebaseConfigured() && db) {
+    try {
+      // 1. Elimina da coleção 'users'
+      if (userId) {
+        try {
+          await deleteDoc(doc(db, "users", userId));
+        } catch (e) {
+          console.warn("Aviso ao deletar doc em users:", e);
+        }
+      }
+
+      // 2. Elimina todas as subscrições associadas
+      const subDocsToDelete = new Set();
+      if (userId) {
+        try {
+          const qSubUser = query(collection(db, "subscriptions"), where("userId", "==", userId));
+          const snapUser = await getDocs(qSubUser);
+          snapUser.forEach(d => subDocsToDelete.add(d.id));
+        } catch {}
+      }
+      if (cleanEmail) {
+        try {
+          const qSubEmail = query(collection(db, "subscriptions"), where("customerEmail", "==", cleanEmail));
+          const snapEmail = await getDocs(qSubEmail);
+          snapEmail.forEach(d => subDocsToDelete.add(d.id));
+        } catch {}
+      }
+
+      for (const subId of subDocsToDelete) {
+        try {
+          await deleteDoc(doc(db, "subscriptions", subId));
+        } catch (e) {
+          console.warn("Aviso ao deletar subscrição:", e);
+        }
+      }
+
+      // 3. Elimina todas as faturas associadas
+      const invDocsToDelete = new Set();
+      if (userId) {
+        try {
+          const qInvUser = query(collection(db, "invoices"), where("userId", "==", userId));
+          const snapUser = await getDocs(qInvUser);
+          snapUser.forEach(d => invDocsToDelete.add(d.id));
+        } catch {}
+      }
+      if (cleanEmail) {
+        try {
+          const qInvEmail = query(collection(db, "invoices"), where("customerEmail", "==", cleanEmail));
+          const snapEmail = await getDocs(qInvEmail);
+          snapEmail.forEach(d => invDocsToDelete.add(d.id));
+        } catch {}
+      }
+
+      for (const invId of invDocsToDelete) {
+        try {
+          await deleteDoc(doc(db, "invoices", invId));
+        } catch (e) {
+          console.warn("Aviso ao deletar fatura:", e);
+        }
+      }
+
+    } catch (err) {
+      console.error("Falha ao eliminar cliente em cascata no Firestore:", err);
+      throw err;
+    }
+  }
+
+  // Modo Demonstração / Limpeza Local
+  try {
+    const rawSubs = localStorage.getItem("megason_demo_subscriptions");
+    if (rawSubs) {
+      const subs = JSON.parse(rawSubs);
+      const filteredSubs = subs.filter(s => {
+        const matchId = userId && s.userId === userId;
+        const matchEmail = cleanEmail && s.customerEmail && s.customerEmail.toLowerCase() === cleanEmail;
+        return !matchId && !matchEmail;
+      });
+      localStorage.setItem("megason_demo_subscriptions", JSON.stringify(filteredSubs));
+    }
+
+    const rawInvs = localStorage.getItem("megason_demo_invoices");
+    if (rawInvs) {
+      const invs = JSON.parse(rawInvs);
+      const filteredInvs = invs.filter(i => {
+        const matchId = userId && i.userId === userId;
+        const matchEmail = cleanEmail && i.customerEmail && i.customerEmail.toLowerCase() === cleanEmail;
+        return !matchId && !matchEmail;
+      });
+      localStorage.setItem("megason_demo_invoices", JSON.stringify(filteredInvs));
+    }
+
+    const rawUser = localStorage.getItem("megason_demo_user");
+    if (rawUser) {
+      try {
+        const u = JSON.parse(rawUser);
+        if ((userId && u.uid === userId) || (cleanEmail && u.email && u.email.toLowerCase() === cleanEmail)) {
+          localStorage.removeItem("megason_demo_user");
+        }
+      } catch {}
+    }
+  } catch {}
+
+  // Notifica todas as abas e componentes
+  notifyStateChange("customer_deleted", { userId, customerEmail: cleanEmail });
+
+  return true;
+}
+
+/**
+ * Verifica e gera automaticamente a fatura do ciclo seguinte se faltarem <= 7 dias para expirar
+ * Garante que o cliente tenha a fatura pronta para pagamento e renovação contínua
+ * @param {object} sub 
+ * @returns {Promise<object|null>} Retorna a fatura gerada ou null
+ */
+export async function checkAndGenerateRenewalInvoice(sub) {
+  if (!sub || sub.status !== "active" || !sub.endDate) return null;
+
+  const endMs = new Date(sub.endDate).getTime();
+  const nowMs = Date.now();
+  const daysLeft = Math.ceil((endMs - nowMs) / (1000 * 60 * 60 * 24));
+
+  // Apenas gera se faltarem 7 dias ou menos
+  if (daysLeft > 7) return null;
+
+  // Se já tiver uma fatura de renovação pendente associada, não duplica
+  if (sub.pendingRenewal && sub.pendingRenewal.invoiceId) {
+    const existing = await getInvoiceById(sub.pendingRenewal.invoiceId);
+    if (existing && existing.status === "pending") {
+      return existing;
+    }
+  }
+
+  // Verifica nas faturas recentes do utilizador se já foi gerada fatura pendente nos últimos 15 dias
+  const userInvoices = await getUserInvoices(sub.userId);
+  const recentPending = userInvoices.find(inv => {
+    if (inv.status !== "pending") return false;
+    const invDate = inv.createdAt?.toDate ? inv.createdAt.toDate().getTime() : new Date(inv.createdAt || 0).getTime();
+    return (nowMs - invDate) < (15 * 24 * 60 * 60 * 1000);
+  });
+  if (recentPending) return recentPending;
+
+  // Gera nova fatura sequencial canónica FT[ANO]AIXXX para o próximo ciclo
+  const plan = getPlanById(sub.planId) || { 
+    id: sub.planId, 
+    name: sub.planName || "ChatGPT Plus", 
+    price: sub.price || 250, 
+    durationDays: sub.durationDays || 30 
+  };
+  const invoiceId = await getNextInvoiceNumber();
+  const now = new Date();
+
+  const invoiceData = {
+    id: invoiceId,
+    invoiceNumber: invoiceId,
+    subscriptionId: sub.id,
+    userId: sub.userId,
+    customerName: sub.customerName || "Cliente",
+    customerEmail: sub.customerEmail || "",
+    customerWhatsapp: sub.customerWhatsapp || "",
+    amount: plan.price,
+    currency: "MZN",
+    planId: plan.id,
+    planName: plan.name,
+    durationDays: plan.durationDays,
+    status: "pending",
+    proofText: `[Fatura Pró-Forma Antecipada] Gerada a ${daysLeft} dia(s) do término para garantir renovação contínua de acesso.`,
+    paymentMethod: "M-Pesa / E-Mola / Absa",
+    isAutomaticRenewal: true,
+    adminNotes: null,
+    paidAt: null,
+    createdAt: isFirebaseConfigured() && db ? serverTimestamp() : now.toISOString(),
+    updatedAt: isFirebaseConfigured() && db ? serverTimestamp() : now.toISOString()
+  };
+
+  const pendingRenewal = {
+    invoiceId,
+    planId: plan.id,
+    planName: plan.name,
+    durationDays: plan.durationDays,
+    price: plan.price,
+    isAutomatic: true,
+    generatedAt: now.toISOString()
+  };
+
+  if (isFirebaseConfigured() && db) {
+    try {
+      await setDoc(doc(db, "invoices", invoiceId), invoiceData);
+      await updateDoc(doc(db, "subscriptions", sub.id), {
+        latestInvoiceId: invoiceId,
+        pendingRenewal,
+        updatedAt: serverTimestamp()
+      });
+    } catch (err) {
+      console.warn("Falha ao salvar fatura automática no Firestore:", err);
+    }
+  } else {
+    saveMockData("megason_demo_invoices", invoiceData);
+    const subs = getMockData("megason_demo_subscriptions");
+    const idx = subs.findIndex(s => s.id === sub.id);
+    if (idx !== -1) {
+      subs[idx].latestInvoiceId = invoiceId;
+      subs[idx].pendingRenewal = pendingRenewal;
+      localStorage.setItem("megason_demo_subscriptions", JSON.stringify(subs));
+    }
+  }
+
+  notifyStateChange("renewal_invoice_generated", {
+    subscriptionId: sub.id,
+    invoiceId,
+    userId: sub.userId,
+    customerName: sub.customerName,
+    daysLeft
+  });
+
+  return { ...invoiceData, createdAt: now.toISOString() };
 }
 
 // Helpers para Modo Demonstração

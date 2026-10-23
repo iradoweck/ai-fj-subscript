@@ -16,8 +16,8 @@
 </head>
 <body class="bg-subtle text-primary">
 
-  <!-- Cabeçalho Administrativo -->
-  <header class="navbar" style="background-color: var(--color-bg-surface); border-bottom: 1px solid var(--color-border-subtle); position: sticky; top: 0; z-index: 50;">
+  <!-- Cabeçalho Administrativo para Tela de Guarda -->
+  <header id="admin-guard-header" class="navbar" style="background-color: var(--color-bg-surface); border-bottom: 1px solid var(--color-border-subtle); position: sticky; top: 0; z-index: 50;">
     <div class="container" style="display: flex; align-items: center; justify-content: space-between; height: 64px;">
       <!-- Marca MEGASON & Selo Admin -->
       <div style="display: flex; align-items: center; gap: var(--space-3);">
@@ -39,8 +39,8 @@
         </span>
       </div>
 
-      <!-- Perfil & Ações Rápidas -->
-      <div id="admin-header-actions" style="display: flex; align-items: center; gap: var(--space-3);">
+      <!-- Link para loja pública -->
+      <div>
         <a href="../" class="btn btn-secondary btn-sm" title="Ir para a loja pública">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
@@ -48,25 +48,12 @@
           </svg>
           Loja Pública
         </a>
-        <div id="admin-user-profile-widget" style="display: none; align-items: center; gap: var(--space-2);">
-          <span id="admin-user-name" style="font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold); color: var(--color-text-secondary);">Admin</span>
-          <button id="btn-admin-logout" class="btn btn-ghost btn-sm" style="color: var(--color-danger); padding: 4px 8px;" title="Terminar Sessão">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-              <polyline points="16 17 21 12 16 7"></polyline>
-              <line x1="21" y1="12" x2="9" y2="12"></line>
-            </svg>
-            Sair
-          </button>
-        </div>
       </div>
     </div>
   </header>
 
-  <!-- Container Principal -->
-  <main class="container" style="padding-top: var(--space-6); padding-bottom: var(--space-12);">
-
-    <!-- TELA DE PROTEÇÃO / GUARDA DE ACESSO (Default ativa até validar sessão) -->
+  <!-- Container de Guarda (Apenas visível se deslogado / verificando autorização) -->
+  <main id="admin-guard-main" class="container" style="padding-top: var(--space-6); padding-bottom: var(--space-12);">
     <section id="admin-guard-container">
       <div class="guard-card">
         <div class="guard-icon" id="guard-icon-box">
@@ -83,29 +70,151 @@
           <button id="btn-open-admin-login" class="btn btn-primary btn-sm" style="display: none;">
             Iniciar Sessão Administrativa
           </button>
-          <a href="index.html" class="btn btn-secondary btn-sm">
+          <a href="../" class="btn btn-secondary btn-sm">
             Voltar para a Página Inicial
           </a>
         </div>
       </div>
     </section>
+  </main>
 
-    <!-- PAINEL DE CONTROLE ADMINISTRATIVO (Exibido após validação de role == 'admin') -->
-    <section id="admin-dashboard-container" style="display: none;">
+  <!-- ==========================================================================
+       PAINEL DE GESTÃO ADMINISTRATIVO COM SIDEBAR LATERAL
+       ========================================================================== -->
+  <div id="admin-dashboard-container" class="admin-layout-wrapper" style="display: none;">
 
-      <!-- Boas-vindas e Título -->
-      <div style="display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: var(--space-4); margin-bottom: var(--space-6);">
-        <div>
-          <h1 style="font-size: var(--font-size-2xl); font-weight: var(--font-weight-bold); margin-bottom: 4px;">
-            Gestão de Subscrições & Contas
-          </h1>
-          <p style="font-size: var(--font-size-sm); color: var(--color-text-secondary);">
-            Conferência manual de comprovativos SMS de M-Pesa, E-Mola e Absa para liberação de pastas ChatGPT Plus.
-          </p>
+    <!-- Backdrop escuro para fechar o menu no mobile -->
+    <div id="sidebar-backdrop" class="sidebar-backdrop"></div>
+
+    <!-- SIDEBAR LATERAL DE NAVEGAÇÃO -->
+    <aside class="admin-sidebar" id="admin-sidebar">
+      <div class="admin-sidebar-header">
+        <a href="../" style="display: flex; align-items: center; gap: 8px; text-decoration: none; color: inherit;">
+          <div style="width: 32px; height: 32px; background: linear-gradient(135deg, #10A37F 0%, #0E7057 100%); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; color: white;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2a10 10 0 0 1 10 10 10 10 0 0 1-10 10 10 10 0 0 1-10-10 10 10 0 0 1 10-10z"></path>
+              <path d="M12 6v6l4 2"></path>
+            </svg>
+          </div>
+          <span style="font-weight: var(--font-weight-bold); font-size: var(--font-size-base); letter-spacing: -0.02em;">MEGASON</span>
+        </a>
+        <span class="status-badge status-badge-pending" style="font-size: 10px; padding: 1px 6px;">Admin</span>
+      </div>
+
+      <!-- Links do Menu Lateral -->
+      <nav class="admin-sidebar-nav" aria-label="Menu Lateral">
+        <!-- 1. Visão Geral (Página Inicial / KPIs) -->
+        <button type="button" id="tab-btn-dashboard" class="admin-sidebar-link active" data-tab="dashboard" title="Visão Geral">
+          <span class="sidebar-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="7" height="7"></rect>
+              <rect x="14" y="3" width="7" height="7"></rect>
+              <rect x="14" y="14" width="7" height="7"></rect>
+              <rect x="3" y="14" width="7" height="7"></rect>
+            </svg>
+          </span>
+          <span class="admin-sidebar-text">Visão Geral</span>
+        </button>
+
+        <!-- 2. Lista de Clientes -->
+        <button type="button" id="tab-btn-customers" class="admin-sidebar-link" data-tab="customers" title="Lista de Clientes">
+          <span class="sidebar-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+          </span>
+          <span class="admin-sidebar-text">Lista de Clientes</span>
+          <span id="tab-badge-customers-count" class="status-badge tab-badge" style="margin-left: auto; font-size: 10px; padding: 1px 6px; background: var(--color-bg-subtle);">0</span>
+        </button>
+
+        <!-- 3. Pedidos & Subscrições -->
+        <button type="button" id="tab-btn-subscriptions" class="admin-sidebar-link" data-tab="subscriptions" title="Pedidos & Subscrições">
+          <span class="sidebar-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+              <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+              <line x1="12" y1="22.08" x2="12" y2="12"></line>
+            </svg>
+          </span>
+          <span class="admin-sidebar-text">Pedidos</span>
+          <span id="tab-badge-pending-count" class="status-badge status-badge-pending tab-badge" style="display: none; margin-left: auto; font-size: 10px; padding: 1px 6px;">0</span>
+        </button>
+
+        <!-- 4. Faturas & Auditoria -->
+        <button type="button" id="tab-btn-invoices" class="admin-sidebar-link" data-tab="invoices" title="Faturas & Auditoria">
+          <span class="sidebar-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="1" x2="12" y2="23"></line>
+              <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+            </svg>
+          </span>
+          <span class="admin-sidebar-text">Faturas</span>
+        </button>
+
+        <!-- 5. Pacotes & Preços -->
+        <button type="button" id="tab-btn-plans" class="admin-sidebar-link" data-tab="plans" title="Planos & Preços">
+          <span class="sidebar-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+            </svg>
+          </span>
+          <span class="admin-sidebar-text">Planos & Preços</span>
+        </button>
+
+        <!-- 6. Configurações -->
+        <button type="button" id="tab-btn-settings" class="admin-sidebar-link" data-tab="settings" title="Configurações">
+          <span class="sidebar-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+          </span>
+          <span class="admin-sidebar-text">Configurações</span>
+        </button>
+      </nav>
+
+      <!-- Rodapé da Sidebar -->
+      <div class="admin-sidebar-footer">
+        <a href="../" class="btn btn-secondary btn-sm" style="width: 100%; justify-content: center; gap: 6px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+            <polyline points="9 22 9 12 15 12 15 22"></polyline>
+          </svg>
+          Loja Pública
+        </a>
+        <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 6px;">
+          <span id="admin-user-name" style="font-size: 11px; font-weight: 600; color: var(--color-text-secondary); text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 150px;">Admin</span>
+          <button type="button" id="btn-admin-logout" class="btn btn-ghost btn-sm" style="color: var(--color-danger); padding: 4px 6px; font-size: 11px;">
+            Sair
+          </button>
         </div>
-        <div style="display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap;">
+      </div>
+    </aside>
+
+    <!-- ÁREA PRINCIPAL DE CONTEÚDO (À DIREITA) -->
+    <div class="admin-main-area">
+
+      <!-- Topbar Administrativa -->
+      <header class="admin-topbar">
+        <div style="display: flex; align-items: center; gap: var(--space-3);">
+          <button type="button" id="btn-toggle-sidebar" class="btn btn-ghost btn-sm" style="display: inline-flex; padding: 6px;" aria-label="Alternar Menu Lateral" title="Alternar Menu Lateral">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+          </button>
+          <h2 id="admin-page-title" style="font-size: var(--font-size-base); font-weight: var(--font-weight-bold); margin: 0;">
+            Visão Geral do Sistema
+          </h2>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: var(--space-2);">
           <button id="btn-admin-open-create-client" class="btn btn-primary btn-sm" style="display: flex; align-items: center; gap: 6px;">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
               <circle cx="8.5" cy="7" r="4"></circle>
               <line x1="20" y1="8" x2="20" y2="14"></line>
@@ -113,301 +222,660 @@
             </svg>
             <span>Novo Cliente & Plano</span>
           </button>
-          <button id="btn-refresh-data" class="btn btn-secondary btn-sm" title="Recarregar dados do Firestore">
+          <button id="btn-refresh-data" class="btn btn-secondary btn-sm" title="Recarregar dados">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="23 4 23 10 17 10"></polyline>
               <polyline points="1 20 1 14 7 14"></polyline>
               <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
             </svg>
-            Atualizar
           </button>
         </div>
-      </div>
+      </header>
 
-      <!-- CARDS DE MÉTRICAS (KPIs) -->
-      <div class="kpi-grid">
-        <!-- Receita Confirmada / Paga -->
-        <div class="kpi-card kpi-green">
-          <div class="kpi-header">
-            <span class="kpi-title">Receita Confirmada</span>
-            <div class="kpi-icon-wrap">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="12" y1="1" x2="12" y2="23"></line>
-                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-              </svg>
+      <!-- Conteúdo Interno por Aba -->
+      <div class="admin-page-content">
+
+        <!-- ======================================================================
+             ABA 1: VISÃO GERAL (PÁGINA INICIAL / KPIS)
+             ====================================================================== -->
+        <div id="tab-content-dashboard" class="tab-pane" style="display: block;">
+          
+          <div style="margin-bottom: var(--space-5);">
+            <h1 style="font-size: var(--font-size-xl); font-weight: var(--font-weight-bold); margin: 0 0 4px 0;">Painel de Controlo & Métricas</h1>
+            <p style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin: 0;">Visão consolidada de clientes, atividade operacional, faturas e rendimento financeiro.</p>
+          </div>
+
+          <!-- CARDS DE MÉTRICAS (KPIs) -->
+          <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--space-4); margin-bottom: var(--space-6);">
+            
+            <!-- Clientes Ativos -->
+            <div class="kpi-card kpi-green">
+              <div class="kpi-header">
+                <span class="kpi-title">Clientes Ativos</span>
+                <div class="kpi-icon-wrap">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="9" cy="7" r="4"></circle>
+                    <polyline points="16 11 18 13 22 9"></polyline>
+                  </svg>
+                </div>
+              </div>
+              <div class="kpi-value" id="kpi-active-subscribers">0</div>
+              <div class="kpi-caption">Clientes com acesso ativo ao ChatGPT Plus</div>
             </div>
-          </div>
-          <div class="kpi-value" id="kpi-total-received">0 MT</div>
-          <div class="kpi-caption">Faturas conferidas e marcadas como pagas</div>
-        </div>
 
-        <!-- Total Faturado / Emitido -->
-        <div class="kpi-card kpi-blue">
-          <div class="kpi-header">
-            <span class="kpi-title">Total Faturado</span>
-            <div class="kpi-icon-wrap">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                <polyline points="14 2 14 8 20 8"></polyline>
-                <line x1="16" y1="13" x2="8" y2="13"></line>
-                <line x1="16" y1="17" x2="8" y2="17"></line>
-                <polyline points="10 9 9 9 8 9"></polyline>
-              </svg>
+            <!-- Clientes Suspensos -->
+            <div class="kpi-card" style="border-left: 4px solid #C2410C;">
+              <div class="kpi-header">
+                <span class="kpi-title">Clientes Suspensos</span>
+                <div class="kpi-icon-wrap" style="color: #C2410C;">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                  </svg>
+                </div>
+              </div>
+              <div class="kpi-value" id="kpi-suspended-subscribers" style="color: #C2410C;">0</div>
+              <div class="kpi-caption">Contas temporariamente com acesso suspenso</div>
             </div>
-          </div>
-          <div class="kpi-value" id="kpi-total-billed">0 MT</div>
-          <div class="kpi-caption">Valor total de faturas ativas e pendentes</div>
-        </div>
 
-        <!-- Subscritores Ativos -->
-        <div class="kpi-card kpi-purple">
-          <div class="kpi-header">
-            <span class="kpi-title">Subscritores Ativos</span>
-            <div class="kpi-icon-wrap">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                <circle cx="9" cy="7" r="4"></circle>
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-              </svg>
+            <!-- Total de Clientes Cadastrados -->
+            <div class="kpi-card kpi-purple">
+              <div class="kpi-header">
+                <span class="kpi-title">Total de Clientes</span>
+                <div class="kpi-icon-wrap">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="9" cy="7" r="4"></circle>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                  </svg>
+                </div>
+              </div>
+              <div class="kpi-value" id="kpi-total-customers">0</div>
+              <div class="kpi-caption">Total de contas registradas na base</div>
             </div>
-          </div>
-          <div class="kpi-value" id="kpi-active-subscribers">0</div>
-          <div class="kpi-caption">Contas com acesso ativo ao ChatGPT Plus</div>
-        </div>
 
-        <!-- Pedidos Pendentes -->
-        <div class="kpi-card kpi-amber">
-          <div class="kpi-header">
-            <span class="kpi-title">Aguardando Análise</span>
-            <div class="kpi-icon-wrap">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="10"></circle>
-                <polyline points="12 6 12 12 16 14"></polyline>
-              </svg>
+            <!-- Ganhos Confirmados (Receita Paga) -->
+            <div class="kpi-card kpi-green">
+              <div class="kpi-header">
+                <span class="kpi-title">Ganhos Confirmados</span>
+                <div class="kpi-icon-wrap">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="1" x2="12" y2="23"></line>
+                    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                  </svg>
+                </div>
+              </div>
+              <div class="kpi-value" id="kpi-total-received">0 MT</div>
+              <div class="kpi-caption">Receita total liquidada via M-Pesa, E-Mola e Absa</div>
             </div>
-          </div>
-          <div class="kpi-value" id="kpi-pending-orders">0</div>
-          <div class="kpi-caption">SMS submetidos precisando de validação</div>
-        </div>
-      </div>
 
-      <!-- NAVEGAÇÃO POR ABAS -->
-      <nav class="admin-tabs-nav" aria-label="Navegação do Painel">
-        <button id="tab-btn-subscriptions" class="admin-tab-btn active" data-tab="subscriptions">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-            <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
-            <line x1="12" y1="22.08" x2="12" y2="12"></line>
-          </svg>
-          Subscrições & Pedidos
-          <span id="tab-badge-pending-count" class="status-badge status-badge-pending" style="display: none; font-size: 10px; padding: 1px 6px;">0</span>
-        </button>
+            <!-- Pedidos Pendentes -->
+            <div class="kpi-card kpi-amber">
+              <div class="kpi-header">
+                <span class="kpi-title">Aguardando Análise</span>
+                <div class="kpi-icon-wrap">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12 6 12 12 16 14"></polyline>
+                  </svg>
+                </div>
+              </div>
+              <div class="kpi-value" id="kpi-pending-orders">0</div>
+              <div class="kpi-caption">SMS aguardando conferência para liberação</div>
+            </div>
 
-        <button id="tab-btn-invoices" class="admin-tab-btn" data-tab="invoices">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="12" y1="1" x2="12" y2="23"></line>
-            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-          </svg>
-          Faturas & Auditoria
-        </button>
+            <!-- Total Faturado / Emitido -->
+            <div class="kpi-card kpi-blue">
+              <div class="kpi-header">
+                <span class="kpi-title">Total Faturado</span>
+                <div class="kpi-icon-wrap">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                  </svg>
+                </div>
+              </div>
+              <div class="kpi-value" id="kpi-total-billed">0 MT</div>
+              <div class="kpi-caption">Valor consolidado de todas as faturas geradas</div>
+            </div>
 
-        <button id="tab-btn-plans" class="admin-tab-btn" data-tab="plans">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
-          </svg>
-          Pacotes & Preços
-        </button>
-
-        <button id="tab-btn-settings" class="admin-tab-btn" data-tab="settings">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="3"></circle>
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-          </svg>
-          Configurações
-        </button>
-      </nav>
-
-      <!-- BARRA DE PESQUISA E FILTROS -->
-      <div class="admin-toolbar">
-        <div class="admin-search-box">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="11" cy="11" r="8"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-          </svg>
-          <input type="text" id="admin-search-input" class="form-input" placeholder="Buscar por Nome, WhatsApp, Email ou ID...">
-        </div>
-
-        <div class="admin-filter-group">
-          <label for="admin-status-filter" style="font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold); color: var(--color-text-secondary);">Filtrar por Status:</label>
-          <select id="admin-status-filter" class="form-input" style="width: auto; padding-right: var(--space-8);">
-            <option value="all">Todos os Status</option>
-            <option value="pending">Pendentes (SMS para conferir)</option>
-            <option value="active">Ativas (Com acesso)</option>
-            <option value="suspended">Suspensas</option>
-            <option value="cancelled">Canceladas / Rejeitadas</option>
-          </select>
-        </div>
-      </div>
-
-      <!-- ABA 1: SUBSCRIÇÕES & PEDIDOS -->
-      <div id="tab-content-subscriptions" class="tab-pane">
-        <div class="table-responsive">
-          <table id="table-subscriptions">
-            <thead>
-              <tr>
-                <th>Data / ID</th>
-                <th>Cliente</th>
-                <th>Contacto & Província</th>
-                <th>Plano</th>
-                <th>Status</th>
-                <th>Pasta ChatGPT Plus</th>
-                <th style="text-align: right;">Ações</th>
-              </tr>
-            </thead>
-            <tbody id="tbody-subscriptions">
-              <tr>
-                <td colspan="7" style="text-align: center; padding: var(--space-8); color: var(--color-text-muted);">
-                  A carregar subscrições...
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- ABA 2: FATURAS & AUDITORIA -->
-      <div id="tab-content-invoices" class="tab-pane" style="display: none;">
-        <div class="table-responsive">
-          <table id="table-invoices">
-            <thead>
-              <tr>
-                <th>Fatura ID</th>
-                <th>Subscrição ID</th>
-                <th>Cliente</th>
-                <th>Valor</th>
-                <th>Método Detetado</th>
-                <th>Status</th>
-                <th>Data Emissão</th>
-                <th>Confirmado Por</th>
-              </tr>
-            </thead>
-            <tbody id="tbody-invoices">
-              <tr>
-                <td colspan="8" style="text-align: center; padding: var(--space-8); color: var(--color-text-muted);">
-                  A carregar faturas...
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- ABA 3: GESTÃO DE PACOTES & PREÇOS -->
-      <div id="tab-content-plans" class="tab-pane" style="display: none;">
-        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-3); margin-bottom: var(--space-4);">
-          <div>
-            <h3 style="font-size: var(--font-size-lg); font-weight: var(--font-weight-bold); margin: 0;">Planos e Pacotes Comerciais</h3>
-            <p style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin: 2px 0 0 0;">
-              Crie, edite ou apague planos para refletir instantaneamente na vitrine e no checkout.
-            </p>
-          </div>
-          <div style="display: flex; gap: var(--space-2); align-items: center;">
-            <button id="btn-admin-seed-plans" class="btn btn-secondary btn-sm" title="Restaura os 4 planos oficiais da MEGASON">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
-              </svg>
-              Sincronizar Padrão
-            </button>
-            <button id="btn-admin-open-create-plan" class="btn btn-primary btn-sm">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="12" y1="5" x2="12" y2="19"></line>
-                <line x1="5" y1="12" x2="19" y2="12"></line>
-              </svg>
-              Novo Pacote / Plano
-            </button>
-          </div>
-        </div>
-
-        <div class="table-responsive">
-          <table id="table-plans">
-            <thead>
-              <tr>
-                <th>ID / Slug</th>
-                <th>Nome do Pacote</th>
-                <th>Duração (Dias)</th>
-                <th>Preço (MZN)</th>
-                <th>Destaque</th>
-                <th>Gatilho / Poupança</th>
-                <th style="text-align: right;">Ações</th>
-              </tr>
-            </thead>
-            <tbody id="tbody-plans">
-              <tr>
-                <td colspan="7" style="text-align: center; padding: var(--space-8); color: var(--color-text-muted);">
-                  A carregar planos...
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- ABA 4: CONFIGURAÇÕES DO SISTEMA & NOTIFICAÇÕES -->
-      <div id="tab-content-settings" class="tab-pane" style="display: none;">
-        <div style="max-width: 680px; background: var(--color-bg-surface); border: 1px solid var(--color-border-subtle); border-radius: var(--radius-lg); padding: var(--space-6);">
-          <div style="margin-bottom: var(--space-6);">
-            <h3 style="font-size: var(--font-size-lg); font-weight: var(--font-weight-bold); margin: 0 0 4px 0;">Configurações de Notificações</h3>
-            <p style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin: 0;">
-              Defina os canais oficiais para onde os comprovativos de pagamentos e avisos de novos pedidos devem ser encaminhados.
-            </p>
           </div>
 
-          <form id="form-admin-settings">
-            <div style="display: flex; flex-direction: column; gap: var(--space-4);">
-              <!-- Email de Notificações -->
+          <!-- Atalhos Rápidos e Resumo de Pedidos Pendentes -->
+          <div style="background: var(--color-bg-surface); border: 1px solid var(--color-border-subtle); border-radius: var(--radius-lg); padding: var(--space-5);">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-4);">
               <div>
-                <label for="admin-setting-email" style="font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold); display: block; margin-bottom: 6px;">
-                  E-mail Oficial para Recebimento de Comprovativos *
-                </label>
-                <input type="email" id="admin-setting-email" class="form-input" placeholder="Ex: comercial@admin-megason.site" required>
-                <span style="font-size: 11px; color: var(--color-text-muted); margin-top: 4px; display: block;">
-                  Os comprovativos submetidos pelos clientes são direcionados para este e-mail.
-                </span>
+                <h3 style="font-size: var(--font-size-sm); font-weight: var(--font-weight-bold); margin: 0;">Pedidos com Análise Prioritária</h3>
+                <span style="font-size: 11px; color: var(--color-text-secondary);">Comprovativos SMS submetidos que necessitam de conferência manual</span>
               </div>
-
-              <!-- WhatsApp de Atendimento -->
-              <div>
-                <label for="admin-setting-whatsapp" style="font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold); display: block; margin-bottom: 6px;">
-                  Número do WhatsApp de Atendimento (Moçambique) *
-                </label>
-                <input type="text" id="admin-setting-whatsapp" class="form-input" placeholder="842256366" required>
-                <span style="font-size: 11px; color: var(--color-text-muted); margin-top: 4px; display: block;">
-                  Utilizado para gerar os links oficiais do wa.me no checkout e na mensagem de boas-vindas do cliente.
-                </span>
-              </div>
-
-              <!-- Nome da Empresa / Responsável -->
-              <div>
-                <label for="admin-setting-brand" style="font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold); display: block; margin-bottom: 6px;">
-                  Nome Comercial da Empresa
-                </label>
-                <input type="text" id="admin-setting-brand" class="form-input" value="MEGASON" readonly style="background-color: var(--color-bg-subtle);">
-              </div>
-
-              <div style="display: flex; justify-content: flex-end; padding-top: var(--space-2); border-top: 1px solid var(--color-border-subtle); margin-top: var(--space-2);">
-                <button type="submit" id="btn-save-settings" class="btn btn-primary btn-sm">
-                  Gravar Configurações
-                </button>
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-dash-view-all-orders">Ver Todos os Pedidos</button>
+            </div>
+            <div id="dash-pending-orders-box">
+              <div class="table-responsive">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Cliente</th>
+                      <th>Plano</th>
+                      <th>Valor</th>
+                      <th>Meio SMS</th>
+                      <th>Ações Rápidas</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbody-dash-pending-orders">
+                    <tr>
+                      <td colspan="5" style="text-align: center; padding: var(--space-4); color: var(--color-text-muted);">
+                        Nenhum pedido pendente de conferência no momento.
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
-          </form>
+          </div>
+
         </div>
+
+        <!-- ======================================================================
+             ABA 2: LISTA DE CLIENTES
+             ====================================================================== -->
+        <div id="tab-content-customers" class="tab-pane" style="display: none;">
+          
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-3); margin-bottom: var(--space-4);">
+            <div>
+              <h3 style="font-size: var(--font-size-lg); font-weight: var(--font-weight-bold); margin: 0;">Gestão & Ficha de Clientes</h3>
+              <p style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin: 2px 0 0 0;">
+                Registo cadastral consolidado, pastas dedicadas ChatGPT Plus, províncias e histórico de faturamento.
+              </p>
+            </div>
+            <div style="display: flex; gap: var(--space-2); align-items: center;">
+              <span id="customers-total-label" style="font-size: var(--font-size-xs); color: var(--color-text-muted); font-weight: 500;">
+                A carregar clientes...
+              </span>
+            </div>
+          </div>
+
+          <div class="admin-toolbar" style="display: flex; gap: var(--space-3); flex-wrap: wrap; align-items: center; justify-content: space-between; margin-bottom: var(--space-4);">
+            <div style="display: flex; gap: var(--space-2); flex: 1; min-width: 280px; max-width: 600px;">
+              <div class="admin-search-box" style="flex: 1;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <input type="text" id="admin-customers-search-input" class="form-input" placeholder="Buscar por Nome, Código AI-XXXX, WhatsApp, E-mail ou Pasta...">
+              </div>
+              <select id="admin-customers-status-filter" class="form-select" style="width: 180px; font-size: var(--font-size-xs);">
+                <option value="all">Todos os Estados</option>
+                <option value="active">Com Plano Ativo</option>
+                <option value="none">Sem Plano Ativo</option>
+                <option value="expired">Suspensos / Expirados</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="table-responsive">
+            <table id="table-customers">
+              <thead>
+                <tr>
+                  <th>Código</th>
+                  <th>Nome Completo</th>
+                  <th>WhatsApp</th>
+                  <th>E-mail</th>
+                  <th>Província</th>
+                  <th>Pasta ChatGPT Plus</th>
+                  <th>Subscrição Atual</th>
+                  <th>Estado</th>
+                  <th>Dias Restantes</th>
+                  <th>Total Pago</th>
+                  <th>Faturas</th>
+                  <th>Cadastro</th>
+                  <th style="text-align: right;">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-customers">
+                <tr>
+                  <td colspan="13" style="text-align: center; padding: var(--space-4); color: var(--color-text-muted);">
+                    A carregar lista de clientes...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+
+        <!-- ======================================================================
+             ABA 3: PEDIDOS & SUBSCRIÇÕES
+             ====================================================================== -->
+        <div id="tab-content-subscriptions" class="tab-pane" style="display: none;">
+          
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-3); margin-bottom: var(--space-4);">
+            <div>
+              <h3 style="font-size: var(--font-size-lg); font-weight: var(--font-weight-bold); margin: 0;">Pedidos & Subscrições</h3>
+              <p style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin: 2px 0 0 0;">
+                Conferência de comprovativos de pagamento móvel/bancário, atribuição de pastas e gestão de acessos.
+              </p>
+            </div>
+            <div style="display: flex; gap: var(--space-2); align-items: center;">
+              <span id="subscriptions-total-label" style="font-size: var(--font-size-xs); color: var(--color-text-muted); font-weight: 500;">
+                0 pedidos registados
+              </span>
+            </div>
+          </div>
+
+          <!-- BARRA DE PESQUISA E FILTROS -->
+          <div class="admin-toolbar">
+            <div class="admin-search-box">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <input type="text" id="admin-search-input" class="form-input" placeholder="Buscar por Nome, WhatsApp, Email ou ID...">
+            </div>
+
+            <div class="admin-filter-group">
+              <label for="admin-status-filter" style="font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold); color: var(--color-text-secondary);">Filtrar por Status:</label>
+              <select id="admin-status-filter" class="form-input" style="width: auto; padding-right: var(--space-8);">
+                <option value="all">Todos os Status</option>
+                <option value="pending">Pendentes (SMS para conferir)</option>
+                <option value="active">Ativas (Com acesso)</option>
+                <option value="suspended">Suspensas</option>
+                <option value="cancelled">Canceladas / Rejeitadas</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="table-responsive">
+            <table id="table-subscriptions">
+              <thead>
+                <tr>
+                  <th>Código</th>
+                  <th>Nome do Cliente</th>
+                  <th>WhatsApp</th>
+                  <th>E-mail</th>
+                  <th>Pacote</th>
+                  <th>Valor</th>
+                  <th>Pagamento</th>
+                  <th>Estado</th>
+                  <th>Pasta ChatGPT Plus</th>
+                  <th>Início</th>
+                  <th>Término</th>
+                  <th>Dias Restantes</th>
+                  <th style="text-align: right;">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-subscriptions">
+                <tr>
+                  <td colspan="13" style="text-align: center; padding: var(--space-4); color: var(--color-text-muted);">
+                    A carregar pedidos...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+
+        <!-- ======================================================================
+             ABA 4: FATURAS & AUDITORIA
+             ====================================================================== -->
+        <div id="tab-content-invoices" class="tab-pane" style="display: none;">
+          
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-3); margin-bottom: var(--space-4);">
+            <div>
+              <h3 style="font-size: var(--font-size-lg); font-weight: var(--font-weight-bold); margin: 0;">Faturas & Cobranças Comerciais</h3>
+              <p style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin: 2px 0 0 0;">
+                Histórico financeiro oficial, notas de cobrança e auditoria de confirmações de pagamento.
+              </p>
+            </div>
+            <div style="display: flex; gap: var(--space-2); align-items: center;">
+              <span id="invoices-total-label" style="font-size: var(--font-size-xs); color: var(--color-text-muted); font-weight: 500;">
+                0 faturas registadas
+              </span>
+            </div>
+          </div>
+
+          <!-- BARRA DE FILTROS E BUSCA DE FATURAS -->
+          <div class="admin-toolbar" style="margin-bottom: var(--space-4);">
+            <div class="admin-search-box">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <input type="text" id="admin-invoices-search-input" class="form-input" placeholder="Buscar por Nº da Fatura, Cliente, WhatsApp, Email ou Valor...">
+            </div>
+
+            <div class="admin-filter-group">
+              <label for="admin-invoices-status-filter" style="font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold); color: var(--color-text-secondary);">Filtrar por Status:</label>
+              <select id="admin-invoices-status-filter" class="form-input" style="width: auto; padding-right: var(--space-8);">
+                <option value="all">Todas as Faturas</option>
+                <option value="paid">Pagas / Confirmadas</option>
+                <option value="pending">Aguardando Pagamento</option>
+                <option value="cancelled">Canceladas</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="table-responsive">
+            <table id="table-invoices">
+              <thead>
+                <tr>
+                  <th>N.º Fatura</th>
+                  <th>Código</th>
+                  <th>Nome do Cliente</th>
+                  <th>WhatsApp</th>
+                  <th>E-mail</th>
+                  <th>Pacote</th>
+                  <th>Valor</th>
+                  <th>Método</th>
+                  <th>Estado</th>
+                  <th>Emissão</th>
+                  <th>Liquidação</th>
+                  <th style="text-align: right;">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-invoices">
+                <tr>
+                  <td colspan="12" style="text-align: center; padding: var(--space-4); color: var(--color-text-muted);">
+                    A carregar faturas...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+
+        <!-- ======================================================================
+             ABA 5: GESTÃO DE PACOTES & PREÇOS
+             ====================================================================== -->
+        <div id="tab-content-plans" class="tab-pane" style="display: none;">
+          
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-3); margin-bottom: var(--space-4);">
+            <div>
+              <h3 style="font-size: var(--font-size-lg); font-weight: var(--font-weight-bold); margin: 0;">Planos e Pacotes Comerciais</h3>
+              <p style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin: 2px 0 0 0;">
+                Crie, edite ou apague planos para refletir instantaneamente na vitrine e no checkout.
+              </p>
+            </div>
+            <div style="display: flex; gap: var(--space-2); align-items: center;">
+              <button id="btn-admin-seed-plans" class="btn btn-secondary btn-sm" title="Restaura os 4 planos oficiais da MEGASON">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
+                </svg>
+                Sincronizar Padrão
+              </button>
+              <button id="btn-admin-open-create-plan" class="btn btn-primary btn-sm">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                Novo Pacote / Plano
+              </button>
+            </div>
+          </div>
+
+          <div class="table-responsive">
+            <table id="table-plans">
+              <thead>
+                <tr>
+                  <th>ID / Slug</th>
+                  <th>Nome do Pacote</th>
+                  <th>Duração (Dias)</th>
+                  <th>Preço (MZN)</th>
+                  <th>Destaque</th>
+                  <th>Gatilho / Poupança</th>
+                  <th style="text-align: right;">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-plans">
+                <tr>
+                  <td colspan="7" style="text-align: center; padding: var(--space-8); color: var(--color-text-muted);">
+                    A carregar planos...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+
+        <!-- ======================================================================
+             ABA 6: CONFIGURAÇÕES DO SISTEMA & PERFIL DO ADMINISTRADOR
+             ====================================================================== -->
+        <div id="tab-content-settings" class="tab-pane" style="display: none;">
+          
+          <div style="display: grid; grid-template-columns: 1fr; gap: var(--space-6); max-width: 980px;">
+            
+            <!-- CARD 1: MEU PERFIL DE ADMINISTRADOR -->
+            <div style="background: var(--color-bg-surface); border: 1px solid var(--color-border-subtle); border-radius: var(--radius-lg); padding: var(--space-6); box-shadow: var(--shadow-sm);">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-4); border-bottom: 1px solid var(--color-border-subtle); padding-bottom: var(--space-3);">
+                <div>
+                  <h3 style="font-size: var(--font-size-base); font-weight: var(--font-weight-bold); margin: 0; display: flex; align-items: center; gap: 8px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--color-primary);">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                      <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                    Meu Perfil de Administrador
+                  </h3>
+                  <p style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin: 2px 0 0 0;">
+                    Edite o seu nome exibido, contacto telefónico e credenciais de acesso ao painel de gestão.
+                  </p>
+                </div>
+                <span class="status-badge status-badge-active" style="font-size: 11px;">Administrador Ativo</span>
+              </div>
+
+              <form id="form-admin-profile">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4);">
+                  <div>
+                    <label for="admin-profile-name" style="font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold); display: block; margin-bottom: 6px;">
+                      Nome Completo do Administrador *
+                    </label>
+                    <input type="text" id="admin-profile-name" class="form-input" placeholder="Ex: Formiga António" required>
+                  </div>
+
+                  <div>
+                    <label for="admin-profile-email" style="font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold); display: block; margin-bottom: 6px;">
+                      E-mail de Login / Acesso
+                    </label>
+                    <input type="email" id="admin-profile-email" class="form-input" readonly style="background-color: var(--color-bg-subtle); cursor: not-allowed;" title="Identificador oficial da conta">
+                  </div>
+
+                  <div>
+                    <label for="admin-profile-whatsapp" style="font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold); display: block; margin-bottom: 6px;">
+                      Número do WhatsApp / Contacto Pessoal *
+                    </label>
+                    <input type="text" id="admin-profile-whatsapp" class="form-input" placeholder="842256366" required>
+                  </div>
+
+                  <div>
+                    <label for="admin-profile-title" style="font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold); display: block; margin-bottom: 6px;">
+                      Cargo / Função no Sistema
+                    </label>
+                    <input type="text" id="admin-profile-title" class="form-input" placeholder="Administrador Geral & Operações">
+                  </div>
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; margin-top: var(--space-4);">
+                  <button type="submit" id="btn-save-admin-profile" class="btn btn-primary btn-sm">
+                    Gravar Meus Dados
+                  </button>
+                </div>
+              </form>
+
+              <!-- ALTERAÇÃO DE SENHA DO ADMINISTRADOR -->
+              <div style="margin-top: var(--space-6); padding-top: var(--space-4); border-top: 1px dashed var(--color-border-subtle);">
+                <h4 style="font-size: var(--font-size-sm); font-weight: var(--font-weight-bold); margin: 0 0 4px 0; color: var(--color-text-primary);">
+                  Segurança: Alterar Senha de Acesso
+                </h4>
+                <p style="font-size: 11px; color: var(--color-text-secondary); margin: 0 0 var(--space-3) 0;">
+                  Defina uma nova palavra-passe segura para proteger o seu acesso administrativo.
+                </p>
+
+                <form id="form-admin-password">
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); max-width: 600px;">
+                    <div>
+                      <label for="admin-new-password" style="font-size: 11px; font-weight: 600; display: block; margin-bottom: 4px;">
+                        Nova Senha (Mínimo 6 caracteres) *
+                      </label>
+                      <input type="password" id="admin-new-password" class="form-input" placeholder="••••••••" minlength="6" required style="font-size: 12px;">
+                    </div>
+                    <div>
+                      <label for="admin-confirm-password" style="font-size: 11px; font-weight: 600; display: block; margin-bottom: 4px;">
+                        Confirmar Nova Senha *
+                      </label>
+                      <input type="password" id="admin-confirm-password" class="form-input" placeholder="••••••••" minlength="6" required style="font-size: 12px;">
+                    </div>
+                  </div>
+                  <div style="margin-top: var(--space-3);">
+                    <button type="submit" id="btn-change-admin-password" class="btn btn-secondary btn-sm" style="font-size: 12px;">
+                      Atualizar Minha Senha
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+
+            <!-- CARD 2: DADOS COMERCIAIS DA MEGASON & COORDENADAS DE PAGAMENTO -->
+            <div style="background: var(--color-bg-surface); border: 1px solid var(--color-border-subtle); border-radius: var(--radius-lg); padding: var(--space-6); box-shadow: var(--shadow-sm);">
+              <div style="margin-bottom: var(--space-4); border-bottom: 1px solid var(--color-border-subtle); padding-bottom: var(--space-3);">
+                <h3 style="font-size: var(--font-size-base); font-weight: var(--font-weight-bold); margin: 0; display: flex; align-items: center; gap: 8px;">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--color-primary);">
+                    <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+                    <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+                  </svg>
+                  Canais Oficiais da Empresa MEGASON & Pagamentos
+                </h3>
+                <p style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin: 2px 0 0 0;">
+                  Defina os canais de atendimento e as coordenadas bancárias/móveis exibidas aos clientes nas faturas e no checkout.
+                </p>
+              </div>
+
+              <form id="form-admin-settings">
+                <div style="display: flex; flex-direction: column; gap: var(--space-4);">
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4);">
+                    <div>
+                      <label for="admin-setting-email" style="font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold); display: block; margin-bottom: 6px;">
+                        E-mail Oficial para Recebimento de Comprovativos *
+                      </label>
+                      <input type="email" id="admin-setting-email" class="form-input" placeholder="comercial@admin-megason.site" required>
+                      <span style="font-size: 11px; color: var(--color-text-muted); margin-top: 4px; display: block;">
+                        Recebe os avisos de novos pedidos do checkout.
+                      </span>
+                    </div>
+
+                    <div>
+                      <label for="admin-setting-whatsapp" style="font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold); display: block; margin-bottom: 6px;">
+                        WhatsApp de Atendimento e Cobrança (Moçambique) *
+                      </label>
+                      <input type="text" id="admin-setting-whatsapp" class="form-input" placeholder="842256366" required>
+                      <span style="font-size: 11px; color: var(--color-text-muted); margin-top: 4px; display: block;">
+                        Número utilizado nos links do WhatsApp wa.me.
+                      </span>
+                    </div>
+                  </div>
+
+                  <!-- COORDENADAS BANCÁRIAS EDITÁVEIS -->
+                  <div style="background-color: var(--color-bg-subtle); border: 1px solid var(--color-border-subtle); border-radius: var(--radius-md); padding: var(--space-4);">
+                    <span style="font-size: var(--font-size-xs); font-weight: var(--font-weight-bold); color: var(--color-text-primary); display: block; margin-bottom: var(--space-3);">
+                      Coordenadas Oficiais de Pagamento (Exibidas nas Faturas)
+                    </span>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); margin-bottom: var(--space-3);">
+                      <div>
+                        <label for="admin-setting-mpesa-number" style="font-size: 11px; font-weight: 600; display: block; margin-bottom: 4px;">M-Pesa (Número)</label>
+                        <input type="text" id="admin-setting-mpesa-number" class="form-input" value="842256366" style="font-size: 12px;">
+                      </div>
+                      <div>
+                        <label for="admin-setting-mpesa-holder" style="font-size: 11px; font-weight: 600; display: block; margin-bottom: 4px;">M-Pesa (Titular)</label>
+                        <input type="text" id="admin-setting-mpesa-holder" class="form-input" value="FRANCISCO" style="font-size: 12px;">
+                      </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); margin-bottom: var(--space-3);">
+                      <div>
+                        <label for="admin-setting-emola-number" style="font-size: 11px; font-weight: 600; display: block; margin-bottom: 4px;">E-Mola (Número)</label>
+                        <input type="text" id="admin-setting-emola-number" class="form-input" value="861557953" style="font-size: 12px;">
+                      </div>
+                      <div>
+                        <label for="admin-setting-emola-holder" style="font-size: 11px; font-weight: 600; display: block; margin-bottom: 4px;">E-Mola (Titular)</label>
+                        <input type="text" id="admin-setting-emola-holder" class="form-input" value="FRANCISCO" style="font-size: 12px;">
+                      </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--space-3);">
+                      <div>
+                        <label for="admin-setting-absa-account" style="font-size: 11px; font-weight: 600; display: block; margin-bottom: 4px;">Absa (Conta)</label>
+                        <input type="text" id="admin-setting-absa-account" class="form-input" value="0708101028295" style="font-size: 12px;">
+                      </div>
+                      <div>
+                        <label for="admin-setting-absa-nib" style="font-size: 11px; font-weight: 600; display: block; margin-bottom: 4px;">Absa (NIB)</label>
+                        <input type="text" id="admin-setting-absa-nib" class="form-input" value="000207080810102829586" style="font-size: 12px;">
+                      </div>
+                      <div>
+                        <label for="admin-setting-absa-holder" style="font-size: 11px; font-weight: 600; display: block; margin-bottom: 4px;">Absa (Titular)</label>
+                        <input type="text" id="admin-setting-absa-holder" class="form-input" value="MEGASON" style="font-size: 12px;">
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- SEÇÃO EMAILJS: ENVIO AUTOMÁTICO DE FATURAS POR E-MAIL -->
+                  <div style="background: var(--color-bg-subtle); border: 1px solid var(--color-border-subtle); border-radius: var(--radius-md); padding: var(--space-4);">
+                    <div style="margin-bottom: var(--space-3);">
+                      <strong style="font-size: var(--font-size-sm); color: var(--color-text-primary); display: block;">
+                        Serviço de Envio de E-mails Transacionais (EmailJS)
+                      </strong>
+                      <span style="font-size: 11px; color: var(--color-text-muted);">
+                        Permite enviar faturas em formato profissional diretamente para a caixa de correio dos clientes via GitHub Pages sem necessidade de backend. Se não preenchido, o sistema utilizará o cliente de e-mail padrão do operador.
+                      </span>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); margin-bottom: var(--space-3);">
+                      <div>
+                        <label for="admin-setting-emailjs-service" style="font-size: 11px; font-weight: 600; display: block; margin-bottom: 4px;">Service ID</label>
+                        <input type="text" id="admin-setting-emailjs-service" class="form-input" placeholder="service_xxxxxx" style="font-size: 12px;">
+                      </div>
+                      <div>
+                        <label for="admin-setting-emailjs-template" style="font-size: 11px; font-weight: 600; display: block; margin-bottom: 4px;">Template ID</label>
+                        <input type="text" id="admin-setting-emailjs-template" class="form-input" placeholder="template_xxxxxx" style="font-size: 12px;">
+                      </div>
+                    </div>
+
+                    <div>
+                      <label for="admin-setting-emailjs-publickey" style="font-size: 11px; font-weight: 600; display: block; margin-bottom: 4px;">Public Key / User ID</label>
+                      <input type="text" id="admin-setting-emailjs-publickey" class="form-input" placeholder="publicKey_xxxxxx" style="font-size: 12px;">
+                    </div>
+                  </div>
+
+                  <div style="display: flex; justify-content: flex-end; padding-top: var(--space-2); border-top: 1px solid var(--color-border-subtle);">
+                    <button type="submit" id="btn-save-settings" class="btn btn-primary btn-sm">
+                      Gravar Dados da Empresa
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </div>
+
+          </div>
+        </div>
+
       </div>
 
-    </section>
-
-  </main>
+      <!-- Rodapé Administrativo Integrado à Área Principal -->
+      <footer class="admin-footer">
+        <div class="admin-footer-left">
+          <strong>MEGASON</strong> © 2026. Todos os direitos reservados.
+        </div>
+        <div class="admin-footer-right">
+          Dev. By Zedeck's IT. | v1.0.0
+        </div>
+      </footer>
+    </div>
+  </div>
 
   <!-- ==========================================================================
        MODAIS ADMINISTRATIVOS
@@ -906,20 +1374,402 @@
     </div>
   </div>
 
+  <!-- 9. MODAL DE CONFIRMAÇÃO DE ELIMINAÇÃO DE CLIENTE (EM CASCATA) -->
+  <div id="modal-confirm-delete-client" class="modal-backdrop" style="display: none;">
+    <div class="modal-card" style="max-width: 480px;">
+      <div class="modal-header">
+        <h3 style="font-size: var(--font-size-base); font-weight: var(--font-weight-bold); display: flex; align-items: center; gap: 8px; color: var(--color-danger);">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            <line x1="10" y1="11" x2="10" y2="17"></line>
+            <line x1="14" y1="11" x2="14" y2="17"></line>
+          </svg>
+          Eliminar Cliente & Histórico Completo
+        </h3>
+        <button type="button" class="btn-close-modal btn btn-ghost btn-sm" data-close="modal-confirm-delete-client">✕</button>
+      </div>
+      <div class="modal-body" style="display: flex; flex-direction: column; gap: var(--space-4);">
+        <input type="hidden" id="delete-client-id">
+        <input type="hidden" id="delete-client-email">
+
+        <div style="background-color: var(--color-danger-bg); border: 1px solid #FECACA; border-radius: var(--radius-md); padding: var(--space-3); color: var(--color-danger-text); font-size: var(--font-size-xs); line-height: 1.5;">
+          <strong>Atenção: Ação Irreversível!</strong><br>
+          Esta operação eliminará permanentemente a conta do cliente, todas as subscrições associadas (ativas, pendentes ou suspensas) e todas as faturas financeiras emitidas.
+        </div>
+
+        <div style="background: var(--color-bg-subtle); padding: var(--space-3); border-radius: var(--radius-md); border: 1px solid var(--color-border-subtle); font-size: var(--font-size-xs);">
+          <div style="margin-bottom: 4px;"><strong>Cliente:</strong> <span id="delete-client-name">-</span></div>
+          <div style="margin-bottom: 4px;"><strong>Código:</strong> <span id="delete-client-code" style="font-family: monospace; font-weight: 700; color: var(--color-primary);">-</span></div>
+          <div><strong>Contacto:</strong> <span id="delete-client-contact">-</span></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-sm" data-close="modal-confirm-delete-client">Cancelar</button>
+        <button type="button" id="btn-confirm-delete-client" class="btn btn-danger btn-sm">
+          Sim, Eliminar Tudo Definitivamente
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 10. MODAL DE PRÉ-VISUALIZAÇÃO DE FATURA OFICIAL (ERP MEGASON) -->
+  <div id="modal-invoice-preview" class="modal-backdrop" style="display: none;">
+    <div class="modal-card" style="max-width: 620px;">
+      <div class="modal-header">
+        <h3 style="font-size: var(--font-size-base); font-weight: var(--font-weight-bold); display: flex; align-items: center; gap: 8px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--color-primary);">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+            <polyline points="10 9 9 9 8 9"></polyline>
+          </svg>
+          Fatura Comercial Oficial MEGASON
+        </h3>
+        <button type="button" class="btn-close-modal btn btn-ghost btn-sm" data-close="modal-invoice-preview">✕</button>
+      </div>
+      <div class="modal-body" style="display: flex; flex-direction: column; gap: var(--space-4);">
+        <!-- Espelho da Fatura -->
+        <div id="invoice-preview-sheet" style="background: white; border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-6); font-size: var(--font-size-xs); line-height: 1.5; color: #1E293B;">
+          <!-- Cabeçalho -->
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid var(--color-primary); padding-bottom: var(--space-3); margin-bottom: var(--space-4);">
+            <div>
+              <strong style="font-size: var(--font-size-base); color: var(--color-primary); letter-spacing: -0.02em;">MEGASON</strong>
+              <div style="font-size: 11px; color: var(--color-text-secondary);">Informática & Tecnologia</div>
+              <div style="font-size: 10px; color: var(--color-text-muted);">Inteligência Artificial & Soluções Digitais</div>
+            </div>
+            <div style="text-align: right;">
+              <span id="preview-invoice-status" class="status-badge status-badge-paid" style="font-size: 11px;">PAGA</span>
+              <div id="preview-invoice-number" style="font-family: monospace; font-weight: 700; font-size: var(--font-size-sm); color: var(--color-text-primary); margin-top: 4px;">FT2026AI001</div>
+            </div>
+          </div>
+
+          <!-- Metadados -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); margin-bottom: var(--space-4); background-color: #F8FAFC; padding: var(--space-3); border-radius: var(--radius-sm);">
+            <div>
+              <div style="font-size: 10px; color: #64748B; text-transform: uppercase; font-weight: 600;">Faturado A:</div>
+              <div id="preview-invoice-customer-name" style="font-weight: 700; font-size: var(--font-size-xs); margin-top: 2px;">-</div>
+              <div id="preview-invoice-customer-code" style="font-family: monospace; font-size: 11px; color: var(--color-primary); font-weight: 600;">-</div>
+              <div id="preview-invoice-customer-contact" style="font-size: 11px; color: #64748B;">-</div>
+            </div>
+            <div style="text-align: right;">
+              <div style="font-size: 10px; color: #64748B; text-transform: uppercase; font-weight: 600;">Datas Oficiais:</div>
+              <div style="font-size: 11px; margin-top: 2px;"><strong>Emissão:</strong> <span id="preview-invoice-issue-date">-</span></div>
+              <div style="font-size: 11px;"><strong>Vencimento:</strong> <span id="preview-invoice-due-date">-</span></div>
+              <div style="font-size: 11px;"><strong>Método:</strong> <span id="preview-invoice-method" style="font-weight: 600;">-</span></div>
+            </div>
+          </div>
+
+          <!-- Tabela de Itens -->
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: var(--space-4);">
+            <thead>
+              <tr style="background-color: #F1F5F9; border-bottom: 1px solid #CBD5E1; font-size: 11px; text-transform: uppercase;">
+                <th style="padding: 6px 8px; text-align: left;">Descrição do Serviço</th>
+                <th style="padding: 6px 8px; text-align: center;">Período</th>
+                <th style="padding: 6px 8px; text-align: right;">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="border-bottom: 1px solid #E2E8F0;">
+                <td style="padding: 8px;">
+                  <strong id="preview-invoice-plan-name" style="display: block;">Subscrição ChatGPT Plus</strong>
+                  <span style="font-size: 10px; color: #64748B;">Acesso dedicado com pasta exclusiva e modelos avançados</span>
+                </td>
+                <td id="preview-invoice-duration" style="padding: 8px; text-align: center; font-size: 11px;">30 dias</td>
+                <td id="preview-invoice-amount" style="padding: 8px; text-align: right; font-weight: 700; color: var(--color-primary); font-size: var(--font-size-sm);">300 MT</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <!-- Totalizador -->
+          <div style="display: flex; justify-content: flex-end; margin-bottom: var(--space-4);">
+            <div style="width: 200px; border-top: 2px solid #E2E8F0; padding-top: 6px;">
+              <div style="display: flex; justify-content: space-between; font-weight: 700; font-size: var(--font-size-sm);">
+                <span>Total Faturado:</span>
+                <span id="preview-invoice-total-highlight" style="color: var(--color-primary);">300 MT</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Coordenadas no Rodapé do Recibo -->
+          <div style="background-color: #F8FAFC; border: 1px dashed #CBD5E1; border-radius: var(--radius-sm); padding: var(--space-2) var(--space-3); font-size: 10px; color: #475569;">
+            <strong>Coordenadas Oficiais MEGASON:</strong> M-Pesa: 842256366 | E-Mola: 861557953 | Absa NIB: 000207080810102829586
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: space-between;">
+        <button type="button" class="btn btn-secondary btn-sm" data-close="modal-invoice-preview">Fechar</button>
+        <div style="display: flex; gap: var(--space-2);">
+          <button type="button" id="btn-print-invoice-preview" class="btn btn-secondary btn-sm">
+            Imprimir Recibo
+          </button>
+          <button type="button" id="btn-wa-invoice-preview" class="btn btn-primary btn-sm">
+            Enviar WhatsApp
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 11. MODAL DE FICHA COMPLETA DO CLIENTE (DADOS, PASTA, SUBSCRICAO & FATURAS) -->
+  <div id="modal-customer-details" class="modal-backdrop" style="display: none;">
+    <div class="modal-card" style="max-width: 680px;">
+      <div class="modal-header">
+        <div>
+          <h3 style="font-size: var(--font-size-base); font-weight: var(--font-weight-bold); display: flex; align-items: center; gap: 8px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--color-primary);">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+            Ficha Cadastral do Cliente
+          </h3>
+          <span id="customer-modal-subtitle" style="font-size: 11px; color: var(--color-text-secondary); margin-top: 2px; display: block;">
+            Consulta e edição detalhada de dados cadastrais, acesso à pasta e histórico financeiro.
+          </span>
+        </div>
+        <button type="button" class="btn-close-modal btn btn-ghost btn-sm" data-close="modal-customer-details">✕</button>
+      </div>
+
+      <div class="modal-body" style="display: flex; flex-direction: column; gap: var(--space-4); max-height: 75vh; overflow-y: auto;">
+        
+        <!-- Cartão de Identificação Superior -->
+        <div style="background-color: var(--color-bg-subtle); border: 1px solid var(--color-border-subtle); border-radius: var(--radius-md); padding: var(--space-3); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--space-2);">
+          <div>
+            <div style="font-size: 10px; color: var(--color-text-muted); text-transform: uppercase; font-weight: 700;">Identificador Oficial</div>
+            <div id="customer-view-code" style="font-family: monospace; font-weight: 700; font-size: var(--font-size-sm); color: var(--color-primary);">AI-XXXX</div>
+          </div>
+          <div>
+            <div style="font-size: 10px; color: var(--color-text-muted); text-transform: uppercase; font-weight: 700;">Data de Cadastro</div>
+            <div id="customer-view-created-at" style="font-size: var(--font-size-xs); color: var(--color-text-primary); font-weight: 600;">-</div>
+          </div>
+          <div>
+            <div style="font-size: 10px; color: var(--color-text-muted); text-transform: uppercase; font-weight: 700;">Estado da Subscrição</div>
+            <div id="customer-view-status-badge">-</div>
+          </div>
+        </div>
+
+        <!-- Seção 1: Formulário de Edição Cadastral -->
+        <form id="form-customer-edit" style="display: flex; flex-direction: column; gap: var(--space-3);">
+          <input type="hidden" id="customer-edit-id">
+          
+          <div style="font-size: var(--font-size-xs); font-weight: 700; text-transform: uppercase; color: var(--color-text-secondary); border-bottom: 1px solid var(--color-border-subtle); padding-bottom: 4px;">
+            1. Dados Pessoais & Contacto
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3);">
+            <div>
+              <label for="customer-edit-name" style="font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold); display: block; margin-bottom: 4px;">
+                Nome Completo *
+              </label>
+              <input type="text" id="customer-edit-name" class="form-input" required>
+            </div>
+            <div>
+              <label for="customer-edit-email" style="font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold); display: block; margin-bottom: 4px;">
+                Endereço de E-mail
+              </label>
+              <input type="email" id="customer-edit-email" class="form-input" readonly style="background-color: var(--color-bg-subtle); color: var(--color-text-secondary); cursor: not-allowed;">
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3);">
+            <div>
+              <label for="customer-edit-whatsapp" style="font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold); display: block; margin-bottom: 4px;">
+                Número de WhatsApp *
+              </label>
+              <input type="text" id="customer-edit-whatsapp" class="form-input" placeholder="84XXXXXXX ou 86XXXXXXX" required>
+            </div>
+            <div>
+              <label for="customer-edit-province" style="font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold); display: block; margin-bottom: 4px;">
+                Província em Moçambique
+              </label>
+              <select id="customer-edit-province" class="form-select">
+                <option value="Maputo Cidade">Maputo Cidade</option>
+                <option value="Maputo Província">Maputo Província</option>
+                <option value="Gaza">Gaza</option>
+                <option value="Inhambane">Inhambane</option>
+                <option value="Sofala">Sofala</option>
+                <option value="Manica">Manica</option>
+                <option value="Tete">Tete</option>
+                <option value="Zambézia">Zambézia</option>
+                <option value="Nampula">Nampula</option>
+                <option value="Cabo Delgado">Cabo Delgado</option>
+                <option value="Niassa">Niassa</option>
+                <option value="Outro">Outro</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="font-size: var(--font-size-xs); font-weight: 700; text-transform: uppercase; color: var(--color-text-secondary); border-bottom: 1px solid var(--color-border-subtle); padding-bottom: 4px; margin-top: var(--space-2);">
+            2. Configuração de Acesso ao ChatGPT Plus
+          </div>
+
+          <div>
+            <label for="customer-edit-folder" style="font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold); display: block; margin-bottom: 4px;">
+              Pasta Atribuída na Plataforma
+            </label>
+            <input type="text" id="customer-edit-folder" class="form-input" placeholder="Ex: Pasta 04 - Amílcar">
+          </div>
+
+          <div>
+            <label for="customer-edit-credentials" style="font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold); display: block; margin-bottom: 4px;">
+              Credenciais / Instruções de Acesso
+            </label>
+            <textarea id="customer-edit-credentials" class="form-input" rows="2" placeholder="Ex: E-mail da conta compartilhada e senha de acesso"></textarea>
+          </div>
+
+          <div>
+            <label for="customer-edit-notes" style="font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold); display: block; margin-bottom: 4px;">
+              Notas Administrativas Internas
+            </label>
+            <textarea id="customer-edit-notes" class="form-input" rows="2" placeholder="Observações internas sobre o cliente, preferências ou histórico"></textarea>
+          </div>
+
+          <div style="display: flex; justify-content: flex-end;">
+            <button type="submit" id="btn-save-customer-edit" class="btn btn-primary btn-sm">
+              Guardar Alterações Cadastrais
+            </button>
+          </div>
+        </form>
+
+        <!-- Seção 2: Situação da Subscrição Atual -->
+        <div style="font-size: var(--font-size-xs); font-weight: 700; text-transform: uppercase; color: var(--color-text-secondary); border-bottom: 1px solid var(--color-border-subtle); padding-bottom: 4px; margin-top: var(--space-2);">
+          3. Subscrição Ativa & Vigência
+        </div>
+
+        <div id="customer-subscription-card" style="background-color: var(--color-bg-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-3); display: flex; flex-direction: column; gap: var(--space-2);">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--space-2);">
+            <div>
+              <strong id="customer-sub-plan-name" style="font-size: var(--font-size-sm); color: var(--color-text-primary);">Nenhuma subscrição ativa</strong>
+              <div id="customer-sub-dates" style="font-size: 11px; color: var(--color-text-secondary); margin-top: 2px;">Início: - | Fim: -</div>
+            </div>
+            <div style="display: flex; gap: var(--space-2); align-items: center;">
+              <span id="customer-sub-countdown" style="font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: var(--radius-full); background-color: var(--color-bg-subtle); color: var(--color-text-secondary);">-</span>
+              <button type="button" id="btn-customer-open-assign-plan" class="btn btn-secondary btn-sm" style="font-size: 11px;">
+                Atribuir / Renovar Pacote
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Seção 3: Histórico de Faturas do Cliente -->
+        <div style="font-size: var(--font-size-xs); font-weight: 700; text-transform: uppercase; color: var(--color-text-secondary); border-bottom: 1px solid var(--color-border-subtle); padding-bottom: 4px; margin-top: var(--space-2);">
+          4. Histórico de Faturas
+        </div>
+
+        <div class="table-responsive" style="max-height: 180px; overflow-y: auto;">
+          <table style="width: 100%; font-size: 11px;">
+            <thead>
+              <tr style="background-color: var(--color-bg-subtle);">
+                <th style="padding: 6px 8px;">Fatura</th>
+                <th style="padding: 6px 8px;">Pacote</th>
+                <th style="padding: 6px 8px;">Valor</th>
+                <th style="padding: 6px 8px;">Estado</th>
+                <th style="padding: 6px 8px;">Data</th>
+                <th style="padding: 6px 8px; text-align: right;">Ação</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-customer-invoices">
+              <tr>
+                <td colspan="6" style="text-align: center; padding: var(--space-3); color: var(--color-text-muted);">
+                  Nenhuma fatura registada para este cliente.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+
+      <div class="modal-footer" style="display: flex; justify-content: space-between;">
+        <button type="button" class="btn btn-secondary btn-sm" data-close="modal-customer-details">Fechar Ficha</button>
+        <button type="button" id="btn-customer-modal-wa" class="btn btn-ghost btn-sm" style="color: var(--color-primary); font-weight: 600;">
+          Conversar no WhatsApp
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 12. MODAL DE ATRIBUIÇÃO DIRETA DE PACOTE PARA CLIENTE EXISTENTE -->
+  <div id="modal-admin-assign-plan" class="modal-backdrop" style="display: none;">
+    <div class="modal-card" style="max-width: 520px;">
+      <div class="modal-header">
+        <h3 style="font-size: var(--font-size-base); font-weight: var(--font-weight-bold); display: flex; align-items: center; gap: 8px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--color-primary);">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+          </svg>
+          Atribuir ou Renovar Pacote
+        </h3>
+        <button type="button" class="btn-close-modal btn btn-ghost btn-sm" data-close="modal-admin-assign-plan">✕</button>
+      </div>
+      <form id="form-admin-assign-plan">
+        <input type="hidden" id="assign-plan-user-id">
+        <input type="hidden" id="assign-plan-email">
+        <input type="hidden" id="assign-plan-code">
+        <input type="hidden" id="assign-plan-name">
+        <input type="hidden" id="assign-plan-whatsapp">
+
+        <div class="modal-body" style="display: flex; flex-direction: column; gap: var(--space-3); max-height: 75vh; overflow-y: auto;">
+          
+          <div style="background-color: var(--color-bg-subtle); padding: var(--space-3); border-radius: var(--radius-md); font-size: var(--font-size-xs);">
+            <div><strong>Cliente:</strong> <span id="assign-plan-display-name">-</span></div>
+            <div style="margin-top: 2px;"><strong>Código:</strong> <span id="assign-plan-display-code" style="font-family: monospace; color: var(--color-primary); font-weight: 700;">-</span></div>
+          </div>
+
+          <div>
+            <label for="assign-plan-select" style="font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold); display: block; margin-bottom: 4px;">
+              Selecione o Pacote MEGASON *
+            </label>
+            <select id="assign-plan-select" class="form-select" required>
+              <option value="chatgpt-plus-30">Plano 30 Dias (1 Mês) — 300 MT</option>
+              <option value="chatgpt-plus-90">Plano 90 Dias (3 Meses) — 850 MT</option>
+              <option value="chatgpt-plus-180">Plano 180 Dias (6 Meses) — 1.650 MT</option>
+              <option value="chatgpt-plus-365">Plano 365 Dias (1 Ano) — 3.200 MT</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="assign-plan-folder" style="font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold); display: block; margin-bottom: 4px;">
+              Pasta Atribuída no ChatGPT
+            </label>
+            <input type="text" id="assign-plan-folder" class="form-input" placeholder="Ex: Pasta 05 - Ricardo">
+          </div>
+
+          <div>
+            <label for="assign-plan-credentials" style="font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold); display: block; margin-bottom: 4px;">
+              Credenciais / Instruções de Acesso
+            </label>
+            <textarea id="assign-plan-credentials" class="form-input" rows="2" placeholder="Instruções de acesso e dados da conta"></textarea>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 8px; padding: var(--space-2) 0;">
+            <input type="checkbox" id="assign-plan-mark-paid" checked style="width: 16px; height: 16px;">
+            <label for="assign-plan-mark-paid" style="font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold); cursor: pointer;">
+              Marcar imediatamente como Pago e Ativar Acesso (Gera fatura liquidada)
+            </label>
+          </div>
+
+          <div>
+            <label for="assign-plan-notes" style="font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold); display: block; margin-bottom: 4px;">
+              Notas Administrativas
+            </label>
+            <textarea id="assign-plan-notes" class="form-input" rows="2" placeholder="Ex: Pagamento confirmado presencialmente ou via transferência"></textarea>
+          </div>
+
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-sm" data-close="modal-admin-assign-plan">Cancelar</button>
+          <button type="submit" id="btn-submit-assign-plan" class="btn btn-primary btn-sm">
+            Atribuir & Ativar Pacote
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- CONTAINER DE TOASTS -->
   <div id="toast-container" class="toast-container" aria-live="polite"></div>
-
-  <!-- Rodapé Administrativo -->
-  <footer style="margin-top: auto; border-top: 1px solid var(--color-border-subtle); padding: var(--space-6) 0; background-color: var(--color-bg-surface); text-align: center;">
-    <div class="container" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
-      <p style="font-size: var(--font-size-xs); color: var(--color-text-secondary); margin: 0;">
-        <strong>MEGASON</strong> © 2025. Todos os direitos reservados.
-      </p>
-      <p style="font-size: 11px; color: var(--color-text-muted); margin: 0;">
-        Dev. By Zedeck's IT.
-      </p>
-    </div>
-  </footer>
 
   <!-- Scripts Administrativos Modulares -->
   <script type="module" src="../js/admin.js"></script>
